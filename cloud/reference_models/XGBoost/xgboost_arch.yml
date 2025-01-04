@@ -1,0 +1,6 @@
+architecture:
+  max_leaves: 1
+  n_estimators: 300
+  random_state: 42
+training_hyperparameters:
+  bsz: 1024

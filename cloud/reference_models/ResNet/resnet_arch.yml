@@ -1,0 +1,14 @@
+architecture:
+  dropout: 0.2
+  layers:
+    set1:
+      count: 1
+      dim: 1400
+  norm_type: layer
+training_hyperparameters:
+  bsz: 1024
+  epochs: 30
+  optimizer:
+    beta_1: 0.9
+    beta_2: 0.98
+    lr: 1e-5

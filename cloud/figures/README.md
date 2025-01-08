@@ -4,14 +4,15 @@ This directory contains scripts to reproduce the figures reported in "Spectrosco
 
 ## Figure 2
 
-![Figure 2](fig2.png)
+<img src="fig2.png" width="50%">
 
 - `Fig2_rocauc.ipynb` saves the ROC AUC curves of each model to `.npy` files.
 - `Fig2.ipynb` produces all subfigures of Figure 2 using existing mask rasters and the produced `.npy` files.
 
 ## Figure 3
 
-![Figure 3](fig3.png)
+<img src="fig3.png" width="50%">
+
 
 - `Fig3_ab.ipynb` produces subfigures a and b, extracting attention weights by running the SpecTf model on an input.
 - `Fig3_attn.ipynb` extracts attention weights from the entire dataset, saving them to `.npy` files (these can be several gigabytes).

@@ -2,7 +2,8 @@
 
 Jake H. Lee, Michael Kiper, David R. Thompson, Philip G. Brodrick. *In Preparation/Submitted*
 
-![Figure 1](figures/fig1.png)
+<img src="figures/fig1.png" width="50%">
+
 
 ## Description
 

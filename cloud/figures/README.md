@@ -1,6 +1,6 @@
 # Figures
 
-This directory contains scripts to reproduce the figures reported in "Spectroscopic Transformer for Improved EMIT Cloud Masks."
+This directory contains scripts to reproduce the figures reported in "SpecTf: Transformers Enable Data-Driven Imaging Spectroscopy Cloud Detection"
 
 ## Figure 2
 

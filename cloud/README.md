@@ -1,6 +1,6 @@
-# Spectroscopic Transformer for Improved EMIT Cloud Masks
+# SpecTf: Transformers Enable Data-Driven Imaging Spectroscopy Cloud Detection
 
-Jake H. Lee, Michael Kiper, David R. Thompson, Philip G. Brodrick. *In Preparation/Submitted*
+Jake H. Lee, Michael Kiper, David R. Thompson, Philip G. Brodrick. *In Review.*
 
 <img src="figures/fig1.png" width="50%">
 

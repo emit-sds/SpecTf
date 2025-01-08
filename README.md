@@ -24,7 +24,7 @@ Subdirectories of this repository contain research code for specific publication
 
 ## Publications
 
-### `cloud/` Spectroscopic Transformers for Improved EMIT Cloud Masks
+### SpecTf: Transformers Enable Data-Driven Imaging Spectroscopy Cloud Detection
 
 Jake H. Lee, Michael Kiper, David R. Thompson, Philip G. Brodrick.
-*In Revew* - for details see the [cloud directory](https://github.com/emit-sds/SpecTf/tree/main/cloud)
+*In Review* - for details see the [cloud directory](https://github.com/emit-sds/SpecTf/tree/main/cloud)

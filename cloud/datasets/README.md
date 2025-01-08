@@ -2,9 +2,11 @@
 
 This directory contains dataset-related files.
 
-The ML-ready dataset of TOA reflectance spectra and labels are available on Zenodo:
+The ML-ready dataset of TOA reflectance spectra, labels, and metadata are available on Zenodo:
 
-[TBD]
+> Lee, J., Kiper, M., Thompson, D. R., & Brodrick, P. (2025). Dataset for "Spectroscopic Transformer for Improved EMIT Cloud Masks" [Data set]. Zenodo. https://doi.org/10.5281/zenodo.14607938
+
+For usage examples, the HDF5 files should be downloaded and saved in this directory. The CSV files are identical.
 
 The `test_fids.csv` and `train_fids.csv` define the train-test split by scene. Ensuring that scenes don't contribute spectra to both datasets ensures that overfitting is prevented, as spectra from adjacent pixels can be very similar.
 

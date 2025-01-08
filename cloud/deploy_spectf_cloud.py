@@ -36,7 +36,7 @@ if __name__ == "__main__":
     parser.add_argument('outfp', type=str, help='Filepath to output .hdr file')
     parser.add_argument('--keep-bands', action='store_true', help='Keep all bands in the spectra (use for non-EMIT data)')
     parser.add_argument('--proba', action='store_true', help='Output probability map instead of binary cloud mask')
-    parser.add_argument('--weights', type=str, default='v6_m4.pt', help='Filepath to trained model weights (default: v6_m4.pt)')
+    parser.add_argument('--weights', type=str, default='weights.pt', help='Filepath to trained model weights (default: weights.pt)')
     parser.add_argument('--irradiance', type=str, default='irr.npy', help='Filepath to irradiance numpy file (default: irr.npy)')
     parser.add_argument('--arch-spec', type=str, default='arch.yml', help='Filepath to model architecture YAML specification (default: arch.yml)')
     parser.add_argument('--device', type=int, default=-1, help='Device specification for PyTorch (-1 for CPU, 0+ for GPU, default: -1, MPS if available)')

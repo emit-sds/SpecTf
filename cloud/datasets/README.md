@@ -4,7 +4,7 @@ This directory contains dataset-related files.
 
 The ML-ready dataset of TOA reflectance spectra, labels, and metadata are available on Zenodo:
 
-> Lee, J., Kiper, M., Thompson, D. R., & Brodrick, P. (2025). Dataset for "Spectroscopic Transformer for Improved EMIT Cloud Masks" [Data set]. Zenodo. https://doi.org/10.5281/zenodo.14607938
+> Lee, J., Kiper, M., Thompson, D. R., & Brodrick, P. (2025). Dataset for "Spectroscopic Transformer for Improved EMIT Cloud Masks" [Data set]. Zenodo. https://doi.org/10.5281/zenodo.14607937
 
 For usage examples, the HDF5 files should be downloaded and saved in this directory. The CSV files are identical.
 

@@ -27,4 +27,4 @@ Subdirectories of this repository contain research code for specific publication
 ### `cloud/` Spectroscopic Transformers for Improved EMIT Cloud Masks
 
 Jake H. Lee, Michael Kiper, David R. Thompson, Philip G. Brodrick.
-*In Preparation/Submitted*
+*In Revew* - for details see the [cloud directory](https://github.com/emit-sds/SpecTf/tree/main/cloud)

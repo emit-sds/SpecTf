@@ -26,5 +26,8 @@ Subdirectories of this repository contain research code for specific publication
 
 ### SpecTf: Transformers Enable Data-Driven Imaging Spectroscopy Cloud Detection
 
-Jake H. Lee, Michael Kiper, David R. Thompson, Philip G. Brodrick.
-*In Review* - for details see the [cloud directory](https://github.com/emit-sds/SpecTf/tree/main/cloud)
+Jake H. Lee, Michael Kiper, David R. Thompson, Philip G. Brodrick. *In Review* 
+
+Preprint: https://arxiv.org/abs/2501.04916
+
+For details see the [cloud directory](https://github.com/emit-sds/SpecTf/tree/main/cloud)

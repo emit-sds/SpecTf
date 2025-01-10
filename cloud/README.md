@@ -2,6 +2,8 @@
 
 Jake H. Lee, Michael Kiper, David R. Thompson, Philip G. Brodrick. *In Review.*
 
+Preprint: https://arxiv.org/abs/2501.04916
+
 <img src="figures/fig1.png" width="50%">
 
 

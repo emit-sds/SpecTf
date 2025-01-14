@@ -32,3 +32,8 @@ help: ## Show this help.
 build: ## Build project artifact
 	$(PYTHON_COMMAND) -m pip install --upgrade build
 	$(PYTHON_COMMAND) -m build
+
+clean: ## Clean project
+	rm -rf dist
+	rm -rf build
+	rm -rf *.egg-info

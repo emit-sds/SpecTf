@@ -18,6 +18,9 @@ dependencies = [
   "h5py >= 3.12.1",
   "schedulefree >= 1.4",
   "wandb >= 0.19.3",
+  "rich-click >= 1.8.5",
+  "rich >= 13.9.4",
+  "trogon >= 0.6.0",
 ]
 
 [scripts]

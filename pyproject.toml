@@ -1,4 +1,28 @@
-torch
-numpy
-tqdm
-sklearn
+[project]
+name = "SpecTf"
+version = "1.0.1"
+requires-python = ">=3.9"
+authors = [
+  {name = "Michael Kiper"},
+  {name = "Jake H Lee"},
+  {name = "Philip G Brodrick"},
+]
+maintainers = [
+  {name = "Michael Kiper", email = "michael.kiper@jpl.nasa.gov"},
+]
+dependencies = [
+  "torch >= 2.5.1",
+  "numpy >= 2.0.2",
+  "tqdm >= 4.67.1",
+  "scikit-learn >= 1.6.1",
+  "h5py >= 3.12.1",
+  "schedulefree >= 1.4",
+  "wandb >= 0.19.3",
+]
+
+[scripts]
+spectf = 'cloud.cli:main'
+
+[build-system]
+requires = ["setuptools >= 75.8.0"]
+build-backend = "setuptools.build_meta"

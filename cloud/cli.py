@@ -7,7 +7,6 @@ from typing import Any, Dict, Optional, List
 
 import cloud
 
-ROOT_COMMAND = "spectf"
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 
 install()
@@ -21,32 +20,6 @@ help = click.option(
     is_flag=True,
     default=None,
 )
-
-common_commands = [
-    "train",
-    "eval",
-    "deploy",
-]
-
-option_dictionary = click.rich_click.OPTION_GROUPS = {}
-
-# Insert commond options in the dictionary
-for command in common_commands:
-    option_dictionary.update(
-        {
-            f"{ROOT_COMMAND} {command}": [
-                {
-                    "name": "Train",
-                    "options": ["--A", "--B"], # TODO: Flag options
-                },
-                {
-                    "name": "Architecture",
-                    "options": ["--A", "--B",], # TODO: Flag options
-                },
-            ]
-        }
-    )
-
 
 def get_time() -> tuple[float, str]:
     timez: int = time.perf_counter_ns()
@@ -71,14 +44,11 @@ def spectf(
     version: bool,
 ) -> None:
     cli_start, cli_start_ts = get_time()
-    # ctx.obj.start = cli_start
-    # ctx.obj.start_ts = cli_start_ts
+    ctx.obj.start = cli_start
+    ctx.obj.start_ts = cli_start_ts
     if version:
-        print(f"Spectf version {cloud.__version__}")
+        print(f"SpecTf version {cloud.__version__}")
         return
-
-    # spectf: SpectfCli = SpectfCli()
-    # ctx.obj.spectf = spectf
 
 
 # TODO: Add in summary logging
@@ -103,14 +73,12 @@ def spectf(
 #     )
 
 
-# class SpecTfCliOptions(object):
-#     def __init__(self, *args: Any, **kwargs: Optional[Dict[str, Any]]) -> None:
-#         [self.__setattr__(kk, vv) for kk, vv in kwargs.items()]
+class SpecTfCliOptions(object):
+    start: Optional[float]
+    start_ts: Optional[str]
 
 ## Add in all of the subcommands here
 from cloud import train_spectf_cloud #, reference_models, evaluation, deploy
 
 def main() -> None:
-    spectf(
-        # obj=SpecTfCliOptions(),
-    )
+    spectf(obj=SpecTfCliOptions())

@@ -156,7 +156,10 @@ ENV_VAR_PREFIX = 'SPECTF_TRAIN_'
     help="Training run seed.",
     envvar=f'{ENV_VAR_PREFIX}SEED'
 )
-@spectf.command(add_help_option=True)
+@spectf.command(
+    add_help_option=True,
+    help="Train the SpecTf Hyperspectral Transformer Model."
+)
 def train(
     dataset,
     train_csv,

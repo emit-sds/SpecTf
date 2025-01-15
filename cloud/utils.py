@@ -3,8 +3,15 @@ import os.path as op
 from glob import glob
 import logging
 import re
-
 import numpy as np
+import torch
+import random
+
+def seed(i=42):
+    """ Seed all random number generators """
+    random.seed(i)
+    np.random.seed(i)
+    torch.manual_seed(i)
 
 def verify_dir(dirpath):
     """ Verify that the directory path exists, throw if not """

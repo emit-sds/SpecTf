@@ -76,8 +76,8 @@ def spectf(
         print(f"Spectf version {__init__.__version__}")
         return
 
-    spectf: SpectfCli = SpectfCli()
-    ctx.obj.spectf = spectf
+    # spectf: SpectfCli = SpectfCli()
+    # ctx.obj.spectf = spectf
 
 
 # TODO: Add in summary logging
@@ -107,7 +107,7 @@ def spectf(
 #         [self.__setattr__(kk, vv) for kk, vv in kwargs.items()]
 
 ## Add in all of the subcommands here
-import train, deploy, reference_models, evaluation
+import train_spectf_cloud #, reference_models, evaluation, deploy
 
 def main() -> None:
     spectf(

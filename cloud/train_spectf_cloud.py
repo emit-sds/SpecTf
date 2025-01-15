@@ -244,7 +244,7 @@ def train(
                                 dropout=arch_dropout,
                                 agg=arch_agg).to(device)
 
-    optimizer = schedulefree.AdamWScheduleFree((p for p in model.parameters() if p.requires_grad), lr=args.lr, warmup_steps=1000)
+    optimizer = schedulefree.AdamWScheduleFree((p for p in model.parameters() if p.requires_grad), lr=lr, warmup_steps=1000)
 
     # Define datasets - set device to CPU if model cannot fit on GPU
     train_dataset = SpectraDataset(train_X, train_y, transform=None, device=device)

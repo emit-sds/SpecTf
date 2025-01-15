@@ -1,5 +1,5 @@
 [project]
-name = "SpecTf"
+name = "spectf"
 version = "1.0.1"
 requires-python = ">=3.9"
 authors = [

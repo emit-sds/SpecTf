@@ -2,9 +2,10 @@ import rich_click as click
 from rich.traceback import install
 from trogon import tui
 import time, datetime
-import __init__
 
 from typing import Any, Dict, Optional, List
+
+import cloud
 
 ROOT_COMMAND = "spectf"
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
@@ -70,10 +71,10 @@ def spectf(
     version: bool,
 ) -> None:
     cli_start, cli_start_ts = get_time()
-    ctx.obj.start = cli_start
-    ctx.obj.start_ts = cli_start_ts
+    # ctx.obj.start = cli_start
+    # ctx.obj.start_ts = cli_start_ts
     if version:
-        print(f"Spectf version {__init__.__version__}")
+        print(f"Spectf version {cloud.__version__}")
         return
 
     # spectf: SpectfCli = SpectfCli()
@@ -107,7 +108,7 @@ def spectf(
 #         [self.__setattr__(kk, vv) for kk, vv in kwargs.items()]
 
 ## Add in all of the subcommands here
-import train_spectf_cloud #, reference_models, evaluation, deploy
+from cloud import train_spectf_cloud #, reference_models, evaluation, deploy
 
 def main() -> None:
     spectf(

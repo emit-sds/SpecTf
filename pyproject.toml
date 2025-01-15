@@ -23,8 +23,7 @@ dependencies = [
   "trogon >= 0.6.0",
 ]
 
-[scripts]
-spectf = 'cloud.cli:main'
+scripts = { spectf = "cloud.cli:main" }
 
 [build-system]
 requires = ["setuptools >= 75.8.0"]

@@ -1,3 +1,4 @@
+NAME := spectf
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Linux)
     PYTHON_COMMAND := python3
@@ -37,3 +38,7 @@ clean: ## Clean project
 	rm -rf dist
 	rm -rf build
 	rm -rf *.egg-info
+
+dev-install: ## Locally install project in development mode
+	$(PYTHON_COMMAND) -m pip uninstall $(NAME)
+	$(PYTHON_COMMAND) -m pip install -e .

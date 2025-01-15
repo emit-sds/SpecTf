@@ -18,10 +18,10 @@ from sklearn.metrics import (
 )
 import wandb
 
-from dataset import SpectraDataset
-from model import SimpleSeqClassifier
-from cli import spectf
-from utils import seed as useed
+from cloud.dataset import SpectraDataset
+from cloud.model import SimpleSeqClassifier
+from cloud.cli import spectf
+from cloud.utils import seed as useed
 
 os.environ["WANDB__SERVICE_WAIT"] = "300"
 torch.autograd.set_detect_anomaly(True)
@@ -31,7 +31,6 @@ ENV_VAR_PREFIX = 'SPECTF_TRAIN_'
     "dataset",
     nargs=-1,
     type=click.Path(exists=True),
-    help="Filepaths of the hdf5 datasets.",
     required=True,
     envvar=f'{ENV_VAR_PREFIX}DATASET'
 )

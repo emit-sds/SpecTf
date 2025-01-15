@@ -1,9 +1,8 @@
 import torch
 from torch.utils.data import Dataset
 
-import spectral.io.envi as envi
-from toa import l1b_to_toa_arr
-from utils import drop_bands
+from cloud.toa import l1b_to_toa_arr
+from cloud.utils import drop_bands
 
 class RasterDatasetTOA(Dataset):
     """

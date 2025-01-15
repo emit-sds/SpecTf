@@ -4,7 +4,7 @@ import numpy as np
 from spectral.io import envi
 from isofit.core.common import resample_spectrum
 
-from utils import name_to_nm
+from cloud.utils import name_to_nm
 
 def l1b_to_toa_arr(rdnfp, obsfp, irrfp):
     """

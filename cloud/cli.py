@@ -73,7 +73,7 @@ def spectf(
 #     )
 
 
-class SpecTfCliOptions(object):
+class SpecTfCliMetadata(object):
     start: Optional[float]
     start_ts: Optional[str]
 
@@ -81,4 +81,4 @@ class SpecTfCliOptions(object):
 from cloud import train_spectf_cloud #, reference_models, evaluation, deploy
 
 def main() -> None:
-    spectf(obj=SpecTfCliOptions())
+    spectf(obj=SpecTfCliMetadata())

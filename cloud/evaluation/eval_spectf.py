@@ -1,69 +1,112 @@
-import sys
-import argparse
+import rich_click as click
 import h5py
-import random
 from tqdm import tqdm
 
 import torch
 import torch.nn as nn
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
 
 import numpy as np
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import precision_recall_fscore_support, average_precision_score
 from sklearn.metrics import fbeta_score, roc_auc_score
 
-#from utils import drop_bands
+from cloud.model import SimpleSeqClassifier
+from cloud.dataset import SpectraDataset
+from cloud.utils import seed
+from cloud.evaluation import eval
 
-sys.path.append('..')
-from model import SimpleSeqClassifier
-from dataset import SpectraDataset
+ENV_VAR_PREFIX = "SPECTF_EVAL_SPECTF_"
 
-random.seed(42)
-np.random.seed(42)
-torch.manual_seed(42)
 torch.autograd.set_detect_anomaly(True)
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Train a classification model on tiled methane data.")
+@click.argument(
+    "dataset",
+    nargs=-1,  # allow multiple dataset paths
+    type=click.Path(exists=True),
+    required=True,
+    envvar=f"{ENV_VAR_PREFIX}DATASET",
+)
+@click.option(
+    "--weights",
+    required=True,
+    type=click.Path(exists=True, dir_okay=False),
+    help="Filepath to model weights.",
+    envvar=f"{ENV_VAR_PREFIX}WEIGHTS"
+)
+@click.option(
+    "--test-csv",
+    required=True,
+    type=click.Path(exists=True, dir_okay=False),
+    help="Filepath to test FID csv.",
+    envvar=f"{ENV_VAR_PREFIX}TEST_CSV"
+)
+@click.option(
+    "--batch",
+    default=1024,
+    type=int,
+    show_default=True,
+    help="Batchsize for eval. Default 1024.",
+    envvar=f"{ENV_VAR_PREFIX}BATCH"
+)
+@click.option(
+    "--gpu",
+    default=-1,
+    type=int,
+    show_default=True,
+    help="GPU device to use. Default -1 (CPU).",
+    envvar=f"{ENV_VAR_PREFIX}GPU"
+)
+@click.option(
+    "--arch-ff",
+    default=64,
+    type=int,
+    show_default=True,
+    help="Feed-forward dimensions.",
+    envvar=f"{ENV_VAR_PREFIX}ARCH_FF"
+)
+@click.option(
+    "--arch-heads",
+    default=8,
+    type=int,
+    show_default=True,
+    help="Number of heads for multihead attention.",
+    envvar=f"{ENV_VAR_PREFIX}ARCH_HEADS"
+)
+@click.option(
+    "--arch-proj-dim",
+    default=64,
+    type=int,
+    show_default=True,
+    help="Projection dimensions.",
+    envvar=f"{ENV_VAR_PREFIX}ARCH_PROJ_DIM"
+)
+@click.option(
+    "--thresh",
+    default=0.52,
+    type=float,
+    show_default=True,
+    help="Cloud classification posterior score threshold.",
+    envvar=f"{ENV_VAR_PREFIX}THRESH"
+)
+@eval.command(
+    add_help_option=True,
+    help="Evaluate the SpecTf model with test data."
+)
+def spectf(dataset, weights, test_csv, batch, gpu, arch_ff, arch_heads, arch_proj_dim, thresh):
 
-    parser.add_argument('dataset',          help="Filepaths of the hdf5 datasets",
-                                            nargs='+',
-                                            type=str)
-    parser.add_argument('--weights',        help="Filepath to model weights.",
-                                            type=str,
-                                            required=True)
-    parser.add_argument('--test-csv',       help="Filepath to test FID csv.",
-                                            type=str,
-                                            required=True)
-    parser.add_argument('--batch',          help="Batchsize for eval. Default 1024.",
-                                            type=int,
-                                            default=1024)
-    parser.add_argument('--gpu',            help="GPU device to use. Default -1 (cpu).",
-                                            type=int,
-                                            default=-1)
-    parser.add_argument('--arch-ff',        help="Feed-forward dimensions. Default 32.",
-                                            type=int,
-                                            default=64)
-    parser.add_argument('--arch-heads',     help="Number of heads for multihead attention. Default 2.",
-                                            type=int,
-                                            default=8)
-    parser.add_argument('--arch-proj-dim',  help="Projection dimensions. Default 10.",
-                                            type=int,
-                                            default=64)
-
-    args = parser.parse_args()
+    seed()
 
     # Importing the dataset
-    for i, dataset in enumerate(args.dataset):
+    for i, ds in enumerate(dataset):
         if i == 0:
-            f = h5py.File(dataset, 'r')
+            f = h5py.File(ds, 'r')
             labels = f['labels'][:]
             fids = f['fids'][:]
             spectra = f['spectra'][:]
             bands = f.attrs['bands']
         else:
-            f = h5py.File(dataset, 'r')
+            f = h5py.File(ds, 'r')
             labels = np.concatenate((labels, f['labels'][:]))
             fids = np.concatenate((fids, f['fids'][:]))
             spectra = np.concatenate((spectra, f['spectra'][:]))
@@ -72,8 +115,7 @@ if __name__ == "__main__":
 
     # Device
     if torch.cuda.is_available():
-    #if args.gpu != -1:
-        device = torch.device(f"cuda:{args.gpu}")
+        device = torch.device(f"cuda:{gpu}")
     elif torch.backends.mps.is_available() and torch.backends.mps.is_built():
         # apple silicon
         device = torch.device("mps")
@@ -81,9 +123,9 @@ if __name__ == "__main__":
         device = torch.device("cpu")
 
     # Generate a train/test split that prevents FID leakage
-    if args.test_csv:
+    if test_csv:
         # Open test csv
-        with open(args.test_csv, 'r') as f:
+        with open(test_csv, 'r') as f:
             test_fids = [line.strip() for line in f.readlines()]
             test_fids = set(test_fids)
         # Only keep indices of fids that are in the test set
@@ -102,17 +144,17 @@ if __name__ == "__main__":
     banddef = torch.tensor(bands, dtype=torch.float32).to(device)
     model = SimpleSeqClassifier(banddef,
                                 num_classes=n_cls,
-                                num_heads=args.arch_heads,
-                                dim_proj=args.arch_proj_dim,
-                                dim_ff=args.arch_ff,
+                                num_heads=arch_heads,
+                                dim_proj=arch_proj_dim,
+                                dim_ff=arch_ff,
                                 dropout=0).to(device)
 
     # Load weights
-    model.load_state_dict(torch.load(args.weights, map_location=device))
+    model.load_state_dict(torch.load(weights, map_location=device))
     
     # Define datasets - replace OnDevice if not using GPU where the dataset can fit in the VRAM
     test_dataset = SpectraDataset(test_X, test_y, transform=None, device=device)
-    test_dataloader = DataLoader(test_dataset, batch_size=args.batch, shuffle=False)
+    test_dataloader = DataLoader(test_dataset, batch_size=batch, shuffle=False)
 
     model.eval()
     
@@ -120,9 +162,9 @@ if __name__ == "__main__":
     test_pred = []
     test_proba = []
     test_proba_full = []
-    for idx, batch in enumerate(tqdm(test_dataloader, desc="Test", total=len(test_dataloader))):
-        spectra = batch['spectra'].to(device)
-        labels = batch['label'].to(device)
+    for idx, batch_ in enumerate(tqdm(test_dataloader, desc="Test", total=len(test_dataloader))):
+        spectra = batch_['spectra'].to(device)
+        labels = batch_['label'].to(device)
 
         with torch.no_grad():
             pred = model(spectra)
@@ -136,7 +178,7 @@ if __name__ == "__main__":
 
             test_true += labels_cpu
             #test_pred += predcls
-            test_pred += [p[1] >= 0.52 for p in proba_cpu]
+            test_pred += [p[1] >= thresh for p in proba_cpu]
             test_proba += [p[1] for p in proba_cpu]
             test_proba_full += proba_cpu
 
@@ -164,11 +206,10 @@ if __name__ == "__main__":
     print(f"Test TPR: {test_tpr:.4f}")
     print(f"Test FPR: {test_fpr:.4f}")
 
-    # 0.83
-    print(f"0.52 F1: {fbeta_score(test_true, test_pred, beta=1)}")
-    print(f"0.52 F05: {fbeta_score(test_true, test_pred, beta=0.5)}")
-    print(f"0.52 F025: {fbeta_score(test_true, test_pred, beta=0.25)}")
-    print(f"0.52 F01: {fbeta_score(test_true, test_pred, beta=0.10)}")
+    print(f"{thresh:.2f} F1 : {fbeta_score(test_true, test_pred, beta=1)}")
+    print(f"{thresh:.2f} F05 : {fbeta_score(test_true, test_pred, beta=0.5)}")
+    print(f"{thresh:.2f} F025: {fbeta_score(test_true, test_pred, beta=0.25)}")
+    print(f"{thresh:.2f} F01 : {fbeta_score(test_true, test_pred, beta=0.10)}")
 
     # Best threshold for F1, F0.5, F0.25
     thresholds = np.around(np.arange(0, 1.01, 0.01), 2)
@@ -191,7 +232,7 @@ if __name__ == "__main__":
     test_best_th_f025 = thresholds[np.argmax(f025s)]
     test_best_th_f01 = thresholds[np.argmax(f01s)]
 
-    print(f"Test F1: {test_best_f1:.4f} @ {test_best_th_f1:.2f}")
-    print(f"Test F0.5: {test_best_f05:.4f} @ {test_best_th_f05:.2f}")
+    print(f"Test F1   : {test_best_f1:.4f} @ {test_best_th_f1:.2f}")
+    print(f"Test F0.5 : {test_best_f05:.4f} @ {test_best_th_f05:.2f}")
     print(f"Test F0.25: {test_best_f025:.4f} @ {test_best_th_f025:.2f}")
-    print(f"Test F0.1: {test_best_f01:.4f} @ {test_best_th_f01:.2f}")
+    print(f"Test F0.1 : {test_best_f01:.4f} @ {test_best_th_f01:.2f}")

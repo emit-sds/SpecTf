@@ -78,7 +78,7 @@ class SpecTfCliMetadata(object):
     start_ts: Optional[str]
 
 ## Add in all of the subcommands here
-from cloud import train_spectf_cloud #, reference_models, evaluation, deploy
+from cloud import train, deploy#, reference_models, evaluation
 
 def main() -> None:
     spectf(obj=SpecTfCliMetadata())

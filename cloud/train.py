@@ -30,21 +30,21 @@ ENV_VAR_PREFIX = 'SPECTF_TRAIN_'
 @click.argument(
     "dataset",
     nargs=-1,
-    type=click.Path(exists=True),
+    type=click.Path(exists=True, dir_okay=False),
     required=True,
     envvar=f'{ENV_VAR_PREFIX}DATASET'
 )
 @click.option(
     "--train-csv",
     required=True,
-    type=click.Path(exists=True),
+    type=click.Path(exists=True, dir_okay=False),
     help="Filepath to train FID csv.",
     envvar=f'{ENV_VAR_PREFIX}TRAIN_CSV'
 )
 @click.option(
     "--test-csv",
     required=True,
-    type=click.Path(exists=True),
+    type=click.Path(exists=True, dir_okay=False),
     help="Filepath to test FID csv.",
     envvar=f'{ENV_VAR_PREFIX}TEST_CSV'
 )

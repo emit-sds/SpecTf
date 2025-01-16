@@ -1,7 +1,7 @@
 __all__ = [
     "evaluation", 
-    "deploy_spectf_cloud", 
-    "train_spectf_cloud", 
+    "deploy", 
+    "train", 
     "utils", 
     "model", 
     "reference_models",

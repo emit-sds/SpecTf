@@ -31,7 +31,7 @@ def get_time() -> tuple[float, str]:
 
 
 @tui()
-@click.group(context_settings=CONTEXT_SETTINGS, chain=True, invoke_without_command=True)
+@click.group(context_settings=CONTEXT_SETTINGS, invoke_without_command=True)
 @click.option(
     "--version",
     is_flag=True,
@@ -78,7 +78,7 @@ class SpecTfCliMetadata(object):
     start_ts: Optional[str]
 
 ## Add in all of the subcommands here
-from cloud import train_spectf_cloud #, reference_models, evaluation, deploy
+from cloud import train, deploy, evaluation #, reference_models
 
 def main() -> None:
     spectf(obj=SpecTfCliMetadata())

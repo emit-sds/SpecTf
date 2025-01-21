@@ -2,7 +2,7 @@ import os
 import unittest
 from unittest.mock import patch, MagicMock
 import tempfile
-from torch import Tensor, no_grad, nn
+from torch import Tensor, nn
 import subprocess
 import wandb
 
@@ -13,11 +13,17 @@ from cloud.model import SimpleSeqClassifier
 from make_dummy_data import NUM_DATAPOINTS
 
 WANDB_PATH = "cloud.train_spectf_cloud.wandb"
+DUMMY_DATA = "data/mock_dataset.hdf5"
 
 class TestSpecTfTrain(unittest.TestCase):
     def setUp(self):
         self.runner = CliRunner()
         self.base = os.path.dirname(__file__)
+
+        if not os.path.exists(os.path.join(self.base, DUMMY_DATA)):
+            print("Creating mock dataset...")
+            subprocess.run(["python3", os.path.join(self.base, "make_dummy_data.py")])
+
 
     @patch(WANDB_PATH)
     def test_train_command(self, mock_wandb):
@@ -49,7 +55,7 @@ class TestSpecTfTrain(unittest.TestCase):
                 result = self.runner.invoke(
                     train,
                     [
-                        os.path.join(self.base, "data/mock_dataset.hdf5"),
+                        os.path.join(self.base, DUMMY_DATA),
                         "--train-csv", os.path.join(self.base, "data/mock_train.csv"),
                         "--test-csv", os.path.join(self.base, "data/mock_test.csv"),
                         "--epochs", str(epochs),

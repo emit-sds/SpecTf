@@ -1,61 +1,197 @@
 import os
 from datetime import datetime
-import argparse
 import h5py
-import random
+import rich_click as click
 
 import torch
 import torch.nn as nn
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
 import schedulefree
 
 import numpy as np
-from sklearn.metrics import accuracy_score
-from sklearn.metrics import precision_recall_fscore_support, average_precision_score
-from sklearn.metrics import fbeta_score, roc_auc_score
+from sklearn.metrics import (
+    precision_recall_fscore_support, 
+    average_precision_score, 
+    fbeta_score, 
+    roc_auc_score, 
+    accuracy_score
+)
 import wandb
 
-from dataset import SpectraDataset
-from model import SimpleSeqClassifier
+from cloud.dataset import SpectraDataset
+from cloud.model import SimpleSeqClassifier
+from cloud.cli import spectf
+from cloud.utils import seed as useed
 
 os.environ["WANDB__SERVICE_WAIT"] = "300"
-random.seed(42)
-np.random.seed(42)
-torch.manual_seed(42)
 torch.autograd.set_detect_anomaly(True)
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Train a classification model on tiled methane data.")
-
-    parser.add_argument('dataset', nargs='+', type=str, help="Filepaths of the hdf5 datasets.")
-    parser.add_argument('--train-csv', type=str, required=True, help="Filepath to train FID csv.")
-    parser.add_argument('--test-csv', type=str, required=True, help="Filepath to test FID csv.")
-    parser.add_argument('--outdir', type=str, default='./outdir', help="Output directory for models. Defaults to ./outdir.")
-    parser.add_argument('--wandb-entity', type=str, default="", help="WandB project to be logged to.")
-    parser.add_argument('--wandb-project', type=str, default="", help="WandB project to be logged to.")
-    parser.add_argument('--wandb-name', type=str, default="", help="Project name to be appended to timestamp for wandb name.")
-    parser.add_argument('--epochs', type=int, default=50, help="Number of epochs for training. Default is 50.")
-    parser.add_argument('--batch', type=int, default=256, help="Batch size for training. Default is 256.")
-    parser.add_argument('--lr', type=float, default=0.0001, help="Learning rate for training. Default is 0.0001.")
-    parser.add_argument('--gpu', type=int, default=-1, help="GPU device to use. Default is -1 (cpu).")
-    parser.add_argument('--arch-ff', type=int, default=64, help="Feed-forward dimensions. Default is 64.")
-    parser.add_argument('--arch-heads', type=int, default=8, help="Number of heads for multihead attention. Default is 8.")
-    parser.add_argument('--arch-dropout', type=float, default=0.1, help="Dropout percentage for overfit prevention. Default is 0.1.")
-    parser.add_argument('--arch-agg', type=str, choices=['mean', 'max', 'flat'], default='max', help="Aggregate method prior to classification. Default is 'max'.")
-    parser.add_argument('--arch-proj-dim', type=int, default=64, help="Projection dimensions. Default is 64.")
-
-    args = parser.parse_args()
+ENV_VAR_PREFIX = 'SPECTF_TRAIN_'
+@click.argument(
+    "dataset",
+    nargs=-1,
+    type=click.Path(exists=True),
+    required=True,
+    envvar=f'{ENV_VAR_PREFIX}DATASET'
+)
+@click.option(
+    "--train-csv",
+    required=True,
+    type=click.Path(exists=True),
+    help="Filepath to train FID csv.",
+    envvar=f'{ENV_VAR_PREFIX}TRAIN_CSV'
+)
+@click.option(
+    "--test-csv",
+    required=True,
+    type=click.Path(exists=True),
+    help="Filepath to test FID csv.",
+    envvar=f'{ENV_VAR_PREFIX}TEST_CSV'
+)
+@click.option(
+    "--outdir",
+    default="./outdir",
+    show_default=True,
+    help="Output directory for models.",
+    envvar=f'{ENV_VAR_PREFIX}OUTDIR'
+)
+@click.option(
+    "--wandb-entity",
+    default="",
+    show_default=True,
+    help="WandB entity.",
+    envvar=f'{ENV_VAR_PREFIX}WANDB_ENTITY'
+)
+@click.option(
+    "--wandb-project",
+    default="",
+    show_default=True,
+    help="WandB project to be logged to.",
+    envvar=f'{ENV_VAR_PREFIX}WANDB_PROJECT'
+)
+@click.option(
+    "--wandb-name",
+    default="",
+    show_default=True,
+    help="Project name to be appended to timestamp for wandb name.",
+    envvar=f'{ENV_VAR_PREFIX}WANDB_NAME'
+)
+@click.option(
+    "--epochs",
+    default=50,
+    type=int,
+    show_default=True,
+    help="Number of epochs for training.",
+    envvar=f'{ENV_VAR_PREFIX}EPOCHS'
+)
+@click.option(
+    "--batch",
+    default=256,
+    type=int,
+    show_default=True,
+    help="Batch size for training.",
+    envvar=f'{ENV_VAR_PREFIX}BATCH'
+)
+@click.option(
+    "--lr",
+    default=0.0001,
+    type=float,
+    show_default=True,
+    help="Learning rate for training.",
+    envvar=f'{ENV_VAR_PREFIX}LR'
+)
+@click.option(
+    "--gpu",
+    default=-1,
+    type=int,
+    show_default=True,
+    help="GPU device to use (-1 means CPU).",
+    envvar=f'{ENV_VAR_PREFIX}GPU'
+)
+@click.option(
+    "--arch-ff",
+    default=64,
+    type=int,
+    show_default=True,
+    help="Feed-forward dimensions.",
+    envvar=f'{ENV_VAR_PREFIX}ARCH_FF'
+)
+@click.option(
+    "--arch-heads",
+    default=8,
+    type=int,
+    show_default=True,
+    help="Number of heads for multihead attention.",
+    envvar=f'{ENV_VAR_PREFIX}ARCH_HEADS'
+)
+@click.option(
+    "--arch-dropout",
+    default=0.1,
+    type=float,
+    show_default=True,
+    help="Dropout percentage for overfit prevention.",
+    envvar=f'{ENV_VAR_PREFIX}ARCH_DROPOUT'
+)
+@click.option(
+    "--arch-agg",
+    default="max",
+    type=click.Choice(["mean", "max", "flat"]),
+    show_default=True,
+    help="Aggregate method prior to classification.",
+    envvar=f'{ENV_VAR_PREFIX}ARCH_AGG'
+)
+@click.option(
+    "--arch-proj-dim",
+    default=64,
+    type=int,
+    show_default=True,
+    help="Projection dimensions.",
+    envvar=f'{ENV_VAR_PREFIX}ARCH_PROJ_DIM'
+)
+@click.option(
+    "--seed",
+    default=42,
+    type=int,
+    show_default=True,
+    help="Training run seed.",
+    envvar=f'{ENV_VAR_PREFIX}SEED'
+)
+@spectf.command(
+    add_help_option=True,
+    help="Train the SpecTf Hyperspectral Transformer Model."
+)
+def train(
+    dataset,
+    train_csv,
+    test_csv,
+    outdir,
+    wandb_entity,
+    wandb_project,
+    wandb_name,
+    epochs,
+    batch,
+    lr,
+    gpu,
+    arch_ff,
+    arch_heads,
+    arch_dropout,
+    arch_agg,
+    arch_proj_dim,
+    seed
+):
+    # Set seed
+    useed(seed)
 
     # Importing the dataset
-    for i, dataset in enumerate(args.dataset):
+    for i, ds in enumerate(dataset):
         if i == 0:
-            f = h5py.File(dataset, 'r')
+            f = h5py.File(ds, 'r')
             labels = f['labels'][:]
             fids = f['fids'][:]
             spectra = f['spectra'][:]
             bands = f.attrs['bands']
         else:
-            f = h5py.File(dataset, 'r')
+            f = h5py.File(ds, 'r')
             labels = np.concatenate((labels, f['labels'][:]))
             fids = np.concatenate((fids, f['fids'][:]))
             spectra = np.concatenate((spectra, f['spectra'][:]))
@@ -63,12 +199,12 @@ if __name__ == "__main__":
     print("Loaded dataset with shape:", spectra.shape)
 
     # Output directory
-    if not os.path.isdir(args.outdir):
-        os.mkdir(args.outdir)
+    if not os.path.isdir(outdir):
+        os.mkdir(outdir)
 
     # Device
     if torch.cuda.is_available():
-        device = torch.device(f"cuda:{args.gpu}")
+        device = torch.device(f"cuda:{gpu}")
     elif torch.backends.mps.is_available() and torch.backends.mps.is_built():
         device = torch.device("mps")
     else:
@@ -76,14 +212,14 @@ if __name__ == "__main__":
 
     print("Using specified train/test splits.")
     # Open train csv
-    with open(args.train_csv, 'r') as f:
+    with open(train_csv, 'r') as f:
         train_fids = [line.strip() for line in f.readlines()]
         train_fids = set(train_fids)
     # Only keep indices of fids that are in the train set
     train_i = [i for i, f in enumerate(fids) if f.decode('utf-8') in train_fids]
 
     # Open test csv
-    with open(args.test_csv, 'r') as f:
+    with open(test_csv, 'r') as f:
         test_fids = [line.strip() for line in f.readlines()]
         test_fids = set(test_fids)
     # Only keep indices of fids that are in the test set
@@ -104,51 +240,51 @@ if __name__ == "__main__":
     banddef = torch.tensor(bands, dtype=torch.float32).to(device)
     model = SimpleSeqClassifier(banddef,
                                 num_classes=n_cls,
-                                num_heads=args.arch_heads,
-                                dim_proj=args.arch_proj_dim,
-                                dim_ff=args.arch_ff,
-                                dropout=args.arch_dropout,
-                                agg=args.arch_agg).to(device)
+                                num_heads=arch_heads,
+                                dim_proj=arch_proj_dim,
+                                dim_ff=arch_ff,
+                                dropout=arch_dropout,
+                                agg=arch_agg).to(device)
 
-    optimizer = schedulefree.AdamWScheduleFree((p for p in model.parameters() if p.requires_grad), lr=args.lr, warmup_steps=1000)
+    optimizer = schedulefree.AdamWScheduleFree((p for p in model.parameters() if p.requires_grad), lr=lr, warmup_steps=1000)
 
     # Define datasets - set device to CPU if model cannot fit on GPU
     train_dataset = SpectraDataset(train_X, train_y, transform=None, device=device)
-    train_dataloader = DataLoader(train_dataset, batch_size=args.batch, shuffle=True)
+    train_dataloader = DataLoader(train_dataset, batch_size=batch, shuffle=True)
     test_dataset = SpectraDataset(test_X, test_y, transform=None, device=device)
-    test_dataloader = DataLoader(test_dataset, batch_size=args.batch, shuffle=False)
+    test_dataloader = DataLoader(test_dataset, batch_size=batch, shuffle=False)
 
     # Define wandb
-    timestamp = datetime.now().strftime(f"%Y%m%d_%H%M%S_%f_{args.wandb_name}")
+    timestamp = datetime.now().strftime(f"%Y%m%d_%H%M%S_%f_{wandb_name}")
     run = wandb.init(
-        project = args.wandb_project,
-        entity = 'jpl-cmml',
+        project = wandb_project,
+        entity = wandb_entity,
         name = timestamp,
         dir = './',
         config = {
-            'dataset_path': args.dataset,
-            'lr': args.lr,
-            'epochs': args.epochs,
-            'batch': args.batch,
-            'arch_ff': args.arch_ff,
-            'arch_heads': args.arch_heads,
-            'arch_dropout': args.arch_dropout,
-            'arch_proj_dim': args.arch_proj_dim,
-            'arch_agg': args.arch_agg
+            'dataset_path': dataset,
+            'lr': lr,
+            'epochs': epochs,
+            'batch': batch,
+            'arch_ff': arch_ff,
+            'arch_heads': arch_heads,
+            'arch_dropout': arch_dropout,
+            'arch_proj_dim': arch_proj_dim,
+            'arch_agg': arch_agg
         },
         settings=wandb.Settings(_service_wait=300)
     )
 
     # Training loop
-    for epoch in range(args.epochs):
+    for epoch in range(epochs):
         # Set model and optimizer to train mode
         model.train()
         optimizer.train()
 
         train_epoch_loss = 0
-        for idx, batch in enumerate(train_dataloader):
-            spectra = batch['spectra'].to(device)
-            labels = batch['label'].to(device)
+        for idx, batch_ in enumerate(train_dataloader):
+            spectra = batch_['spectra'].to(device)
+            labels = batch_['label'].to(device)
 
             optimizer.zero_grad()
             pred = model(spectra)
@@ -174,9 +310,9 @@ if __name__ == "__main__":
         train_pred = []
         train_proba = []
         train_proba_full = []
-        for idx, batch in enumerate(train_dataloader):
-            spectra = batch['spectra'].to(device)
-            labels = batch['label'].to(device)
+        for idx, batch_ in enumerate(train_dataloader):
+            spectra = batch_['spectra'].to(device)
+            labels = batch_['label'].to(device)
 
             with torch.no_grad():
                 pred = model(spectra)
@@ -234,9 +370,9 @@ if __name__ == "__main__":
         test_proba = []
         test_proba_full = []
         test_epoch_loss = 0
-        for idx, batch in enumerate(test_dataloader):
-            spectra = batch['spectra'].to(device)
-            labels = batch['label'].to(device)
+        for idx, batch_ in enumerate(test_dataloader):
+            spectra = batch_['spectra'].to(device)
+            labels = batch_['label'].to(device)
 
             with torch.no_grad():
                 pred = model(spectra)
@@ -324,6 +460,6 @@ if __name__ == "__main__":
             "epoch": epoch
         })
 
-        torch.save(model.state_dict(), os.path.join(args.outdir, f"{timestamp}_{epoch}.pt"))
+        torch.save(model.state_dict(), os.path.join(outdir, f"{timestamp}_{epoch}.pt"))
 
-run.finish()
+    run.finish()

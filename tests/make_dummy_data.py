@@ -10,6 +10,9 @@ NUM_CLASSES = 2
 base = os.path.dirname(__file__)
 
 if __name__ == "__main__":
+    if not os.path.exists(os.path.join(base, 'data')):
+        os.makedirs(os.path.join(base, 'data'))
+        
     with h5py.File(os.path.join(base, 'data/mock_dataset.hdf5'), 'w') as f:
         f.create_dataset('labels', data=np.random.randint(0, NUM_CLASSES, (NUM_DATAPOINTS,)).astype(np.float32))
         fid_arr = np.array([

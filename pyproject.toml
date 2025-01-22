@@ -1,0 +1,32 @@
+[project]
+name = "spectf"
+version = "1.0.1"
+requires-python = ">=3.9"
+authors = [
+  {name = "Michael Kiper"},
+  {name = "Jake H Lee"},
+  {name = "Philip G Brodrick"},
+]
+maintainers = [
+  {name = "Michael Kiper", email = "michael.kiper@jpl.nasa.gov"},
+]
+dependencies = [
+  "torch >= 2.5.1",
+  "numpy >= 1.20.0, <2.0.0",
+  "tqdm >= 4.67.1",
+  "scikit-learn >= 1.6.1",
+  "h5py >= 3.12.1",
+  "schedulefree >= 1.4",
+  "wandb >= 0.19.3",
+  "rich-click >= 1.8.5",
+  "rich >= 13.9.4",
+  "trogon >= 0.6.0",
+  "spectral >= 0.23.1",
+  "isofit >= 3.2.2",
+]
+
+scripts = { spectf = "cloud.cli:main" }
+
+[build-system]
+requires = ["setuptools >= 75.8.0"]
+build-backend = "setuptools.build_meta"

@@ -139,8 +139,6 @@ def spectf(dataset, weights, test_csv, batch, gpu, arch_ff, arch_heads, arch_pro
 
     # Define model
     n_cls = 2
-    criterion = nn.CrossEntropyLoss()
-
     banddef = torch.tensor(bands, dtype=torch.float32).to(device)
     model = SimpleSeqClassifier(banddef,
                                 num_classes=n_cls,
@@ -151,12 +149,11 @@ def spectf(dataset, weights, test_csv, batch, gpu, arch_ff, arch_heads, arch_pro
 
     # Load weights
     model.load_state_dict(torch.load(weights, map_location=device))
+    model.eval()
     
     # Define datasets - replace OnDevice if not using GPU where the dataset can fit in the VRAM
     test_dataset = SpectraDataset(test_X, test_y, transform=None, device=device)
     test_dataloader = DataLoader(test_dataset, batch_size=batch, shuffle=False)
-
-    model.eval()
     
     test_true = []
     test_pred = []
@@ -192,6 +189,9 @@ def spectf(dataset, weights, test_csv, batch, gpu, arch_ff, arch_heads, arch_pro
     # Precision, Recall, F1
     test_prec, test_rec, test_f1, _ = precision_recall_fscore_support(test_true, test_pred, pos_label=1, average='binary')
     test_ap = average_precision_score(test_true, test_proba)
+    print(f"Test Accuracy:  {test_acc:.4f}")
+    print(f"Test Precision: {test_prec:.4f}")
+    print(f"Test Recall:    {test_rec:.4f}")
     print(f"Test AP: {test_ap:.4f}")
 
     # TPR, FPR, ROC

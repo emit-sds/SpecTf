@@ -173,7 +173,7 @@ def save_f_beta_scores(model:torch.nn.Module, X:torch.Tensor, Y:np.ndarray, outd
     add_help_option=True,
     help="Train a ResNet model."
 )
-def main(
+def train_resnet(
     dataset: list,
     train_csv: str,
     test_csv: str,

@@ -1,9 +1,10 @@
+import os
 import numpy as np
 import torch
 import random
 from sklearn.metrics import fbeta_score
 
-BANDEFF_FILE = 'banddef.npy'
+BANDEFF_FILE = os.path.join(os.path.dirname(__file__), 'banddef.npy')
 BANDEFF = np.load(BANDEFF_FILE)
 BAD_BAND_WL=[381.0055927, 388.4092083, 395.8158144, 403.2254112, 1275.339, 1282.794, 1290.25, 1297.705, 1305.16, 1312.614, 1320.068, 2455.9944995, 2463.3816762, 2470.7679025, 2478.1531786, 2485.5385046, 2492.9238809]
 

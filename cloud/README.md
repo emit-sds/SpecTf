@@ -26,8 +26,8 @@ The datasets associated with this repository are available at:
     - Contains evaluation scripts to produce performance metrics reported in Table 1.
 - `figures/`
     - Contains scripts and Jupyter notebooks to produce figures reported in the paper, as well as raw figures.
-- `reference_models/`
-    - Contains scripts to reproduce the GBT and ANN reference models reported in the paper.
+- `comparison_models/`
+    - Contains scripts to reproduce the GBT and ANN comparison models reported in the paper.
 - `arch.yml`
     - Plaintext definition of model architecture parameters.
 - `dataset.py`

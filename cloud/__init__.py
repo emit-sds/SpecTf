@@ -4,7 +4,7 @@ __all__ = [
     "train", 
     "utils", 
     "model", 
-    "reference_models",
+    "comparison_models",
     "dataset",
     "toa",
 ]

@@ -27,6 +27,7 @@ os.environ["WANDB__SERVICE_WAIT"] = "300"
 torch.autograd.set_detect_anomaly(True)
 
 ENV_VAR_PREFIX = 'SPECTF_TRAIN_'
+
 @click.argument(
     "dataset",
     nargs=-1,
@@ -161,23 +162,23 @@ ENV_VAR_PREFIX = 'SPECTF_TRAIN_'
     help="Train the SpecTf Hyperspectral Transformer Model."
 )
 def train(
-    dataset,
-    train_csv,
-    test_csv,
-    outdir,
-    wandb_entity,
-    wandb_project,
-    wandb_name,
-    epochs,
-    batch,
-    lr,
-    gpu,
-    arch_ff,
-    arch_heads,
-    arch_dropout,
-    arch_agg,
-    arch_proj_dim,
-    seed
+    dataset: list,
+    train_csv: str,
+    test_csv: str,
+    outdir: str,
+    wandb_entity: str,
+    wandb_project: str,
+    wandb_name: str,
+    epochs: int,
+    batch: int,
+    lr: float,
+    gpu: int,
+    arch_ff: int,
+    arch_heads: int,
+    arch_dropout: float,
+    arch_agg: str,
+    arch_proj_dim: int,
+    seed: int
 ):
     # Set seed
     useed(seed)

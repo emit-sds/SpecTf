@@ -13,7 +13,7 @@ from cloud.train import train
 from cloud.comparison_models.train_resnet import resnet
 from cloud.comparison_models.train_xgb import xgboost
 from cloud.model import SimpleSeqClassifier
-from cloud.comparison_models.ResNet.ResNet import ResNet
+from cloud.comparison_models.ResNet import ResNet
 from cloud.comparison_models.train_xgb import xgb
 from make_dummy_data import NUM_DATAPOINTS
 

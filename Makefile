@@ -42,3 +42,6 @@ clean: ## Clean project
 dev-install: ## Locally install project in development mode
 	$(PYTHON_COMMAND) -m pip uninstall $(NAME)
 	$(PYTHON_COMMAND) -m pip install -e .
+
+test: ## Quickly run unit tests
+	$(PYTHON_COMMAND) -m unittest discover -s tests

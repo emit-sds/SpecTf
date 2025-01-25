@@ -26,20 +26,20 @@ def save_f_beta_scores(model:xgb.XGBClassifier, X:np.ndarray, Y:np.ndarray, outd
     thresholds = np.around(np.arange(0, 1.01, 0.01), 2)
     f1s = []
     for t in thresholds:
-        curr_pred = (probabilities[:, 1] >= t).detach().numpy().astype(int)
+        curr_pred = (probabilities >= t).astype(np.int32)
         f1s.append(fbeta_score(Y, curr_pred, beta=1))
     test_best_f1 = thresholds[np.argmax(f1s)]
 
     f_beta_scores = {}
     for beta in beta_values:
-        f_beta = fbeta_score(Y, probabilities[:, 1] > test_best_f1, beta=beta)
+        f_beta = fbeta_score(Y, probabilities > test_best_f1, beta=beta)
         f_beta_scores[f'F-{beta}'] = f_beta
 
     wandb.log({
         **{f"test_{k}": v for k, v in f_beta_scores.items()}
     })
     
-    best_pred = (probabilities[:, 1] >= test_best_f1).to(dtype=int)
+    best_pred = (probabilities >= test_best_f1).astype(np.int32)
     tn, fp, fn, tp = confusion_matrix(Y, best_pred).ravel()
     tpr = tp / (tp + fn)
     fpr = fp / (fp + tn)

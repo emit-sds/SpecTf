@@ -256,7 +256,7 @@ def resnet(
     ## one-hot encode the labels if they aren't already
     num_classes = len(np.unique(labels))
     if labels.ndim == 1 or labels.shape[1] == 1:
-        labels = np.eye(num_classes)[labels]
+        labels = np.eye(num_classes)[labels.astype(np.int32)]
 
     start = time.time()
 

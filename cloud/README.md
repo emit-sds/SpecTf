@@ -32,7 +32,7 @@ The datasets associated with this repository are available at:
     - Plaintext definition of model architecture parameters.
 - `dataset.py`
     - Pytorch dataloader for the ML-ready datasets for model training and EMIT scene rasters for deployment
-- `deploy_spectf_cloud.py`
+- `deploy.py`
     - **Primary script to produce EMIT Cloud Masks.** See [Usage](#Usage) for details.
 - `irr.npy`
     - Solar irradiance data for Top-of-Atmosphere calculation.
@@ -42,7 +42,7 @@ The datasets associated with this repository are available at:
     - This file.
 - `toa.py`
     - Helper script for calculating the Top-of-Atmosphere Reflectance in-memory.
-- `train_spectf_cloud.py`
+- `train.py`
     - **Script to reproduce/retrain the SpecTf Cloud model.** See [Usage](#Usage) for details.
 - `utils.py`
     - Various utility functions. Contains `drop_banddef()`, which drops specific wavelengths from EMIT spectra.
@@ -117,7 +117,7 @@ The ML-ready dataset is available at:
 To reproduce the reported SpecTf model:
 
 ```
-% python train_spectf_cloud.py \
+% python train.py \
     datasets/spectf_cloud_labelbox.hdf5 \
     datasets/spectf_cloud_mmgis.hdf5 \
     --train-csv     datasets/train_fids.csv \
@@ -140,8 +140,8 @@ To reproduce the reported SpecTf model:
 **Complete documentation:**
 
 ```
-% python train_spectf_cloud.py --help
-usage: train_spectf_cloud.py [-h] --train-csv TRAIN_CSV --test-csv TEST_CSV
+% python train.py --help
+usage: train.py [-h] --train-csv TRAIN_CSV --test-csv TEST_CSV
                              [--outdir OUTDIR] [--wandb-entity WANDB_ENTITY]
                              [--wandb-project WANDB_PROJECT]
                              [--wandb-name WANDB_NAME] [--epochs EPOCHS]

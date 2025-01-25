@@ -18,7 +18,7 @@ from sklearn.metrics import fbeta_score, log_loss, confusion_matrix
 import rich_click as click
 
 from cloud.comparison_models.training_utils import utils
-from cloud.comparison_models.ResNet import ResNet
+from cloud.comparison_models.ResNet import make_model
 from cloud.comparison_models import train_comparison
 from cloud.utils import seed as useed
 
@@ -287,7 +287,7 @@ def resnet(
     ## create model ################################################################
     input_dim = spectra.shape[-1]
 
-    model = ResNet.make_model(arch_yaml, input_dim=input_dim, num_classes=num_classes, arch_subkeys=["architecture"])
+    model = make_model(arch_yaml, input_dim=input_dim, num_classes=num_classes, arch_subkeys=["architecture"])
     model = model.to(DEVICE)
     if multiple_gpus:
         model = nn.DataParallel(model)

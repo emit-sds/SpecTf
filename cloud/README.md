@@ -61,9 +61,9 @@ EMIT L1B At-Sensor Calibrated Radiance and Geolocation Data is available from th
 **2. Run SpecTf**
 
 ```
-% python deploy_spectf_cloud.py --help
+% python deploy.py --help
 Threads: 10
-usage: deploy_spectf_cloud.py [-h] [--keep-bands] [--proba]
+usage: deploy.py [-h] [--keep-bands] [--proba]
                               [--weights WEIGHTS] [--irradiance IRRADIANCE]
                               [--arch-spec ARCH_SPEC] [--device DEVICE]
                               [--threshold THRESHOLD]
@@ -95,7 +95,7 @@ options:
 **Example: Reproducing the SpecTf cloud mask in Figure 2a:**
 
 ```
-python deploy_spectf_cloud.py \
+python deploy.py \
     emit20240302t005829_o06201_s000_l1b_rdn_b0106_v01.hdr \
     emit20240302t005829_o06201_s000_l1b_obs_b0106_v01.hdr \
     emit20240302t005829_o06201_s000_spectf_cloudmask.hdr \

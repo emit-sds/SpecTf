@@ -1,6 +1,6 @@
-# Reference Models
+# Comparison Models
 
-This directory contains source code of the reference models developed for "SpecTf: Transformers Enable Data-Driven Imaging Spectroscopy Cloud Detection"
+This directory contains source code of the comparison models developed for "SpecTf: Transformers Enable Data-Driven Imaging Spectroscopy Cloud Detection"
 
 The Gradient Boosted Tree (GBT) model referenced in the paper is referred to as "XGBoost" here. The Artificial Neural Network (ANN) model referenced in the paper is referred to as "ResNet" here. This is **not** the more common ResNet architecture for computer vision tasks - it is a small network of fully connected layers with residual connections.
 

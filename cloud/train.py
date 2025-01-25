@@ -461,4 +461,5 @@ def train(
         })
 
     torch.save(model.state_dict(), os.path.join(outdir, f"{timestamp}_{epoch}.pt"))
+
     run.finish()

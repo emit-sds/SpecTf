@@ -115,7 +115,7 @@ def save_f_beta_scores(model:xgb.XGBClassifier, X:np.ndarray, Y:np.ndarray, outd
     add_help_option=True,
     help="Train a XGBoost model."
 )
-def train_xgboost(
+def xgboost(
         dataset: list,
         train_csv: str,
         test_csv: str,

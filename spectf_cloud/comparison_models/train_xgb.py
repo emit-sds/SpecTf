@@ -10,8 +10,8 @@ import time
 import wandb
 from sklearn.metrics import fbeta_score, log_loss, confusion_matrix
 
-from cloud.comparison_models import train_comparison
-from cloud.comparison_models.training_utils import utils
+from spectf_cloud.comparison_models import train_comparison
+from spectf_cloud.comparison_models.training_utils import utils
 
 ENV_VAR_PREFIX = "XGBOOST_TRAIN_"
 

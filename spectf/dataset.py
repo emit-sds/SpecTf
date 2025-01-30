@@ -1,8 +1,8 @@
 import torch
 from torch.utils.data import Dataset
 
-from cloud.toa import l1b_to_toa_arr
-from cloud.utils import drop_bands
+from spectf.toa import l1b_to_toa_arr
+from spectf.utils import drop_bands
 
 class RasterDatasetTOA(Dataset):
     """

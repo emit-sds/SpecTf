@@ -10,9 +10,9 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
-from cloud.model import SimpleSeqClassifier
-from cloud.dataset import RasterDatasetTOA
-from cloud.cli import spectf
+from spectf.model import SimpleSeqClassifier
+from spectf.dataset import RasterDatasetTOA
+from spectf_cloud.cli import spectf_cloud
 
 ENV_VAR_PREFIX = 'SPECTF_DEPLOY_'
 
@@ -100,7 +100,7 @@ logging.basicConfig(
     help="Threshold for cloud classification.",
     envvar=f"{ENV_VAR_PREFIX}THRESHOLD",
 )
-@spectf.command(
+@spectf_cloud.command(
     add_help_option=True,
     help="Produce a SpecTf transformer-generated cloud mask."
 )

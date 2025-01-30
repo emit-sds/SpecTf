@@ -2,13 +2,9 @@ __all__ = [
     "evaluation", 
     "deploy", 
     "train", 
-    "utils", 
-    "model", 
     "comparison_models",
-    "dataset",
-    "toa",
 ]
-__author__ = " NASA Jet Propulsion Laboratory, California Institute of Technology"
+__author__ = "Jet Propulsion Laboratory, California Institute of Technology"
 
 import importlib.metadata
 

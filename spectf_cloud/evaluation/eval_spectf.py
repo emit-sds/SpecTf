@@ -11,10 +11,10 @@ from sklearn.metrics import accuracy_score
 from sklearn.metrics import precision_recall_fscore_support, average_precision_score
 from sklearn.metrics import fbeta_score, roc_auc_score
 
-from cloud.model import SimpleSeqClassifier
-from cloud.dataset import SpectraDataset
-from cloud.utils import seed
-from cloud.evaluation import eval
+from spectf.model import SimpleSeqClassifier
+from spectf.dataset import SpectraDataset
+from spectf.utils import seed
+from spectf_cloud.evaluation import cloud_eval
 
 ENV_VAR_PREFIX = "SPECTF_EVAL_SPECTF_"
 
@@ -89,7 +89,7 @@ torch.autograd.set_detect_anomaly(True)
     help="Cloud classification posterior score threshold.",
     envvar=f"{ENV_VAR_PREFIX}THRESH"
 )
-@eval.command(
+@cloud_eval.command(
     add_help_option=True,
     help="Evaluate the SpecTf model with test data."
 )

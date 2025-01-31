@@ -5,7 +5,7 @@ import time, datetime
 
 from typing import Any, Dict, Optional, List
 
-import cloud
+import spectf
 
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 
@@ -39,7 +39,7 @@ def get_time() -> tuple[float, str]:
     help="Display the current SpecTf version.",
 )
 @click.pass_context
-def spectf(
+def spectf_cloud(
     ctx: click.Context,
     version: bool,
 ) -> None:
@@ -47,7 +47,7 @@ def spectf(
     ctx.obj.start = cli_start
     ctx.obj.start_ts = cli_start_ts
     if version:
-        print(f"SpecTf version {cloud.__version__}")
+        print(f"SpecTf Cloud version {spectf_cloud.__version__}")
         return
 
 
@@ -78,7 +78,7 @@ class SpecTfCliMetadata(object):
     start_ts: Optional[str]
 
 ## Add in all of the subcommands here
-from cloud import train, deploy, evaluation, comparison_models
+from spectf_cloud import train, deploy, evaluation, comparison_models
 
 def main() -> None:
-    spectf(obj=SpecTfCliMetadata())
+    spectf_cloud(obj=SpecTfCliMetadata())

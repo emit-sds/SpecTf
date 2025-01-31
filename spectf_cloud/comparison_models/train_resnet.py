@@ -17,10 +17,10 @@ from sklearn.metrics import fbeta_score, log_loss, confusion_matrix
 
 import rich_click as click
 
-from cloud.comparison_models.training_utils import utils
-from cloud.comparison_models.ResNet import make_model
-from cloud.comparison_models import train_comparison
-from cloud.utils import seed as useed
+from spectf_cloud.comparison_models.training_utils import utils
+from spectf_cloud.comparison_models.ResNet import make_model
+from spectf_cloud.comparison_models import train_comparison
+from spectf.utils import seed as useed
 
 ENV_VAR_PREFIX = "RESNET_TRAIN_"
 DEVICE = utils.get_device()

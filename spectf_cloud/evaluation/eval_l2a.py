@@ -5,7 +5,7 @@ import numpy as np
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import fbeta_score, roc_auc_score
 
-from cloud.evaluation import eval
+from spectf_cloud.evaluation import cloud_eval
 
 ENV_VAR_PREFIX = "SPECTF_EVAL_L2A_"
 
@@ -23,7 +23,7 @@ ENV_VAR_PREFIX = "SPECTF_EVAL_L2A_"
     help="Filepath to test FID csv.",
     envvar=f"{ENV_VAR_PREFIX}TEST_CSV"
 )
-@eval.command(
+@cloud_eval.command(
     add_help_option=True,
     help="Evaluate the EMIT L2A classification model with test data."
 )

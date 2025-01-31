@@ -289,9 +289,28 @@ class DecoderLayer(nn.Module):
         x = self.ff(self.norm3(x))
         return x
     
-class EncoderSpecTf(nn.Module):
+class SpecTfEncoder(nn.Module):
+    """Encoder based Spectral Transformer model.
+    
+    This is the simplest Spectral Transformer architecture, consisting only of
+    encoder layers. For most tasks, a single encoder layer is a good starting
+    point. Aside from hyperparameters that affect the dimensionality of layers,
+    the aggregation method is the most significant parameter to tune. Some
+    intuition suggests that 'max' aggregation is appropriate for tasks where
+    a few bands are more important than others, while 'mean' aggregation is
+    appropriate when the overall shape of the spectrum is important. While the
+    'flat' aggregation avoids pooling altogether, it fixes the length of the
+    input sequence, and limits the model to a fixed set of bands.
+
+    Attributes:
+        band_concat: BandConcat module
+        spectral_embed: SpectralEmbed module
+        layers: List of EncoderLayer modules
+        aggregate: Aggregation method ('mean', 'max', 'flat')
+        head: Linear layer for classification or regression
+    """
     def __init__(self,
-                 banddef,
+                 banddef: torch.Tensor,
                  num_classes: int = 2,
                  num_heads: int = 8,
                  dim_proj: int = 64,
@@ -300,6 +319,22 @@ class EncoderSpecTf(nn.Module):
                  agg: str = 'max',
                  use_residual: bool = False,
                  num_layers: int = 1):
+        """Initialize SpecTfEncoder module.
+
+        Args:
+            banddef (torch.Tensor): Band center wavelengths.
+            num_classes (int): Number of classes for classification. Default 2.
+            num_heads (int): Number of attention heads. Must be a divisor of
+                             dim_proj. Default 8.
+            dim_proj (int): Dimension of the projected tensors. Default 64.
+            dim_ff (int): Dimension of the intermediate tensors. Default 64.
+            dropout (float): Dropout rate. Default 0.1.
+            agg (str): Aggregation method ('mean', 'max', 'flat').
+                       Default 'max'.
+            use_residual (bool): Whether to use residual connections.
+                                 Default False.
+            num_layers (int): Number of encoder layers. Default 1.
+        """
         super().__init__()
 
         # Embedding
@@ -322,23 +357,34 @@ class EncoderSpecTf(nn.Module):
         elif agg == 'flat':
             self.aggregate = lambda x: torch.flatten(x, start_dim=1)
             self.head = nn.Linear(banddef.shape[0] * dim_proj, num_classes)
+        else:
+            raise ValueError(f'Aggregation method {agg} is not implemented.')
 
         self.aggregate = agg
         self.initialize_weights()
-    
-    def forward(self, x):
+
+    def forward(self, x: torch.Tensor):
+        """SpecTfEncoder forward pass.
+        
+        Args:
+            x (torch.Tensor): Input tensor of shape (b, s, 1)
+        
+        Returns:
+            torch.Tensor: Output tensor of shape (b, num_classes)
+        """
         x = self.band_concat(x)
         x = self.spectral_embed(x)
 
         for layer in self.layers:
             x = layer(x)
-        
+
         x = self.aggregate(x)
         x = self.head(x)
 
         return x
 
     def initialize_weights(self):
+        """Initialize weights for the model."""
         for module in self.modules():
             if isinstance(module, (nn.Linear, nn.Conv1d)):
                 nn.init.xavier_uniform_(module.weight)

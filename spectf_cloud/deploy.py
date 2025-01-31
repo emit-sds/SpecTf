@@ -10,7 +10,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
-from spectf.model import SimpleSeqClassifier
+from spectf.model import SpecTfEncoder
 from spectf.dataset import RasterDatasetTOA
 from spectf_cloud.cli import spectf_cloud
 
@@ -141,13 +141,16 @@ def deploy(
     dataloader = DataLoader(dataset, batch_size=inference['batch'], shuffle=False, num_workers=inference['workers'])
 
     # Define and initialize the model
-    model = SimpleSeqClassifier(banddef = torch.tensor(dataset.banddef, dtype=torch.float, device=device_),
-                                num_classes=2,
-                                num_heads=arch['n_heads'],
-                                dim_proj=arch['dim_proj'],
-                                dim_ff=arch['dim_ff'],
-                                dropout=0,
-                                agg=arch['agg']).to(device_, dtype=torch.float)
+    banddef = torch.tensor(dataset.banddef, dtype=torch.float, device=device_)
+    model = SpecTfEncoder(banddef=banddef,
+                          num_classes=2,
+                          num_heads=arch['n_heads'],
+                          dim_proj=arch['dim_proj'],
+                          dim_ff=arch['dim_ff'],
+                          dropout=0,
+                          agg=arch['agg'],
+                          use_residual=False,
+                          num_layers=1).to(device_, dtype=torch.float)
     state_dict = torch.load(weights, map_location=device_)
     model.load_state_dict(state_dict)
     model.eval()

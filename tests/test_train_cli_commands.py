@@ -12,7 +12,7 @@ from click.testing import CliRunner
 from spectf_cloud.train import train
 from spectf_cloud.comparison_models.train_resnet import resnet
 from spectf_cloud.comparison_models.train_xgb import xgboost
-from spectf.model import SimpleSeqClassifier
+from spectf.model import SpecTfEncoder
 from spectf_cloud.comparison_models.ResNet import ResNet
 from spectf_cloud.comparison_models.train_xgb import xgb
 from make_dummy_data import NUM_DATAPOINTS
@@ -67,7 +67,7 @@ class TestTrainCommands(unittest.TestCase):
             return out
 
         # 2. Invoke the CLI
-        with patch.object(SimpleSeqClassifier, "forward", side_effect=mock_forward_impl) as mock_forward:
+        with patch.object(SpecTfEncoder, "forward", side_effect=mock_forward_impl) as mock_forward:
             with tempfile.TemporaryDirectory() as tmpdir:
                 result = self.runner.invoke(
                     train,

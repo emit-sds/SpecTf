@@ -20,7 +20,7 @@ from sklearn.metrics import (
 import wandb
 
 from spectf.dataset import SpectraDataset
-from spectf.model import SimpleSeqClassifier
+from spectf.model import SpecTfEncoder
 from spectf.utils import seed as useed
 from spectf_cloud.cli import spectf_cloud
 
@@ -240,13 +240,15 @@ def train(
     criterion = nn.CrossEntropyLoss()
 
     banddef = torch.tensor(bands, dtype=torch.float32).to(device)
-    model = SimpleSeqClassifier(banddef,
-                                num_classes=n_cls,
-                                num_heads=arch_heads,
-                                dim_proj=arch_proj_dim,
-                                dim_ff=arch_ff,
-                                dropout=arch_dropout,
-                                agg=arch_agg).to(device)
+    model = SpecTfEncoder(banddef,
+                          num_classes=n_cls,
+                          num_heads=arch_heads,
+                          dim_proj=arch_proj_dim,
+                          dim_ff=arch_ff,
+                          dropout=arch_dropout,
+                          agg=arch_agg,
+                          use_residual=False,
+                          num_layers=1).to(device)
 
     optimizer = schedulefree.AdamWScheduleFree((p for p in model.parameters() if p.requires_grad), lr=lr, warmup_steps=1000)
 

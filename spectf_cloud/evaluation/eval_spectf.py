@@ -11,7 +11,7 @@ from sklearn.metrics import accuracy_score
 from sklearn.metrics import precision_recall_fscore_support, average_precision_score
 from sklearn.metrics import fbeta_score, roc_auc_score
 
-from spectf.model import SimpleSeqClassifier
+from spectf.model import SpecTfEncoder
 from spectf.dataset import SpectraDataset
 from spectf.utils import seed
 from spectf_cloud.evaluation import cloud_eval
@@ -140,12 +140,12 @@ def spectf(dataset, weights, test_csv, batch, gpu, arch_ff, arch_heads, arch_pro
     # Define model
     n_cls = 2
     banddef = torch.tensor(bands, dtype=torch.float32).to(device)
-    model = SimpleSeqClassifier(banddef,
-                                num_classes=n_cls,
-                                num_heads=arch_heads,
-                                dim_proj=arch_proj_dim,
-                                dim_ff=arch_ff,
-                                dropout=0).to(device)
+    model = SpecTfEncoder(banddef,
+                          num_classes=n_cls,
+                          num_heads=arch_heads,
+                          dim_proj=arch_proj_dim,
+                          dim_ff=arch_ff,
+                          dropout=0).to(device)
 
     # Load weights
     model.load_state_dict(torch.load(weights, map_location=device))

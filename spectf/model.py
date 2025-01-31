@@ -1,5 +1,14 @@
+""" Defines the SpecTf architecture and its components.
+
+Copyright 2025 California Institute of Technology
+Apache License, Version 2.0
+
+Author: Jake Lee, jake.h.lee@jpl.nasa.gov
+"""
+
 import torch
-import torch.nn as nn
+from torch import nn
+
 
 class BandConcat(nn.Module):
     """Module to concatenate band wavelength information to spectra.
@@ -46,6 +55,7 @@ class BandConcat(nn.Module):
         encoded = torch.cat((spectra, self.banddef.expand_as(spectra)), dim=-1)
         return encoded
 
+
 class SpectralEmbed(nn.Module):
     """Module to embed spectra per-band using a linear layer.
 
@@ -72,7 +82,7 @@ class SpectralEmbed(nn.Module):
         """
         super().__init__()
         self.linear = nn.Linear(2, n_filters)
-        
+
         if activation == 'tanh':
             self.activation = nn.Tanh()
         elif activation == 'relu':
@@ -83,11 +93,20 @@ class SpectralEmbed(nn.Module):
             self.activation = nn.Identity()
         else:
             raise ValueError(f'SpectralEmbed activation {activation} is not implemented.')
-    
+
     def forward(self, x: torch.Tensor):
+        """SpectralEmbed forward pass.
+
+        Args:
+            x (torch.Tensor): Input tensor of shape (b, s, 2)
+        
+        Returns:
+            torch.Tensor: Output tensor of shape (b, s, n_filters)
+        """
         x = self.linear(x)
         x = self.activation(x)
         return x
+
 
 class FeedForwardBlock(nn.Module):
     """Feed-forward module for transformer layers.
@@ -106,7 +125,8 @@ class FeedForwardBlock(nn.Module):
         self.use_residual: Whether to use residual connections.
     """
 
-    def __init__(self, dim_model: int, dim_ff: int, dropout: float = 0.1, use_residual: bool = False):
+    def __init__(self, dim_model: int, dim_ff: int, dropout: float = 0.1,
+                 use_residual: bool = False):
         """ Initialize FeedForwardBlock module.
 
         Args:
@@ -121,7 +141,7 @@ class FeedForwardBlock(nn.Module):
         self.linear2 = nn.Linear(dim_ff, dim_model, bias=True)
         self.dropout = nn.Dropout(dropout)
         self.dropout2 = nn.Dropout(dropout)
-        self.gelu = torch.nn.functional.gelu
+        self.gelu = nn.GELU()
         self.use_residual = use_residual
 
     def forward(self, x: torch.Tensor):
@@ -140,6 +160,7 @@ class FeedForwardBlock(nn.Module):
             x = x + residual
         return x
 
+
 class AttentionBlock(nn.Module):
     """Attention module for transformer layers.
 
@@ -155,22 +176,29 @@ class AttentionBlock(nn.Module):
         self.use_residual: Whether to use residual connections
     """
 
-    def __init__(self, dim_model: int, num_heads: int, dropout: float = 0.1, use_residual: bool = False):
+    def __init__(self, dim_model: int, num_heads: int, dropout: float = 0.1,
+                 use_residual: bool = False):
         """ Initialize AttentionBlock module.
 
         Args:
             dim_model (int): Dimension of the input and output tensors.
             num_heads (int): Number of attention heads.
             dropout (float): Dropout rate. Default 0.1.
-            use_residual (bool): Whether to use residual connections. Default False.
+            use_residual (bool): Whether to use residual connections.
+                                 Default False.
         """
 
         super().__init__()
-        self.attention = nn.MultiheadAttention(dim_model, num_heads, dropout=dropout, bias=True, batch_first=True)
+        self.attention = nn.MultiheadAttention(dim_model,
+                                               num_heads,
+                                               dropout=dropout,
+                                               bias=True,
+                                               batch_first=True)
         self.dropout = nn.Dropout(dropout)
         self.use_residual = use_residual
 
-    def forward(self, query: torch.Tensor, key: torch.Tensor, value: torch.Tensor):
+    def forward(self, query: torch.Tensor, key: torch.Tensor,
+                value: torch.Tensor):
         """AttentionBlock forward pass.
 
         Args:
@@ -187,6 +215,7 @@ class AttentionBlock(nn.Module):
         if self.use_residual:
             x = x + residual
         return x
+
 
 class EncoderLayer(nn.Module):
     """Encoder layer for transformer models.
@@ -205,23 +234,27 @@ class EncoderLayer(nn.Module):
         ff: FeedForwardBlock module
     """
 
-    def __init__(self, dim_model: int, num_heads: int, dim_ff: int, dropout: float = 0.1, use_residual: bool = False):
+    def __init__(self, dim_model: int, num_heads: int, dim_ff: int,
+                 dropout: float = 0.1, use_residual: bool = False):
         """ Initialize EncoderLayer module.
 
         Args:
             dim_model (int): Dimension of the input and output tensors.
-            num_heads (int): Number of attention heads. Must be a divisor of dim_model.
+            num_heads (int): Number of attention heads. Must be a divisor of
+                             dim_model.
             dim_ff (int): Dimension of the intermediate tensor.
             dropout (float): Dropout rate. Default 0.1.
-            use_residual (bool): Whether to use residual connections. Default False.
+            use_residual (bool): Whether to use residual connections.
+                                 Default False.
         """
 
         super().__init__()
-        self.attention = AttentionBlock(dim_model, num_heads, dropout, use_residual)
+        self.attention = AttentionBlock(dim_model, num_heads, dropout,
+                                        use_residual)
         self.ff = FeedForwardBlock(dim_model, dim_ff, dropout, use_residual)
         self.norm1 = nn.LayerNorm(dim_model)
         self.norm2 = nn.LayerNorm(dim_model)
-    
+
     def forward(self, x: torch.Tensor):
         """EncoderLayer forward pass.
         
@@ -235,11 +268,12 @@ class EncoderLayer(nn.Module):
         x = self.ff(self.norm2(x))
         return x
 
+
 class DecoderLayer(nn.Module):
     """Decoder layer for transformer models.
     
     This module consists of a self-attention block, a cross-attention block,
-    and a feed-forward block. It is based on the original PyTorch implementation,
+    and a feed-forward block. It is based on the original PyTorch implementation
     and uses the pre-layer normalization variant per Xiong et al. (2020). The
     residual connection is disabled by default, since SpecTf is a shallow model
     that only uses a single transformer module. Deeper modules may require
@@ -254,31 +288,37 @@ class DecoderLayer(nn.Module):
         ff: FeedForwardBlock module
     """
 
-    def __init__(self, dim_model: int, num_heads: int, dim_ff: int, dropout: float = 0.1, use_residual: bool = False):
+    def __init__(self, dim_model: int, num_heads: int, dim_ff: int,
+                 dropout: float = 0.1, use_residual: bool = False):
         """ Initialize DecoderLayer module.
         
         Args:
             dim_model (int): Dimension of the input and output tensors.
-            num_heads (int): Number of attention heads. Must be a divisor of dim_model.
+            num_heads (int): Number of attention heads. Must be a divisor of
+                             dim_model.
             dim_ff (int): Dimension of the intermediate tensor.
             dropout (float): Dropout rate. Default 0.1.
-            use_residual (bool): Whether to use residual connections. Default False.
+            use_residual (bool): Whether to use residual connections.
+                                 Default False.
         """
 
         super().__init__()
-        self.self_attn = AttentionBlock(dim_model, num_heads, dropout, use_residual)
-        self.cross_attn = AttentionBlock(dim_model, num_heads, dropout, use_residual)
+        self.self_attn = AttentionBlock(dim_model, num_heads, dropout,
+                                        use_residual)
+        self.cross_attn = AttentionBlock(dim_model, num_heads, dropout,
+                                         use_residual)
         self.ff = FeedForwardBlock(dim_model, dim_ff, dropout, use_residual)
         self.norm1 = nn.LayerNorm(dim_model)
         self.norm2 = nn.LayerNorm(dim_model)
         self.norm3 = nn.LayerNorm(dim_model)
-    
+
     def forward(self, x, enc_out):
         """DecoderLayer forward pass.
         
         Args:
             x (torch.Tensor): Input tensor of shape (b, s, dim_model)
-            enc_out (torch.Tensor): Encoder output tensor of shape (b, s, dim_model)
+            enc_out (torch.Tensor): Encoder output tensor of shape
+                                    (b, s, dim_model)
         
         Returns:
             torch.Tensor: Output tensor of shape (b, s, dim_model)
@@ -288,7 +328,8 @@ class DecoderLayer(nn.Module):
         x = self.cross_attn(self.norm2(x), enc_out, enc_out)
         x = self.ff(self.norm3(x))
         return x
-    
+
+
 class SpecTfEncoder(nn.Module):
     """Encoder based Spectral Transformer model.
     
@@ -389,70 +430,3 @@ class SpecTfEncoder(nn.Module):
                 nn.init.xavier_uniform_(module.weight)
                 if module.bias is not None:
                     nn.init.constant_(module.bias, 0)
-
-# Original implementation
-# class SimpleSeqClassifier(nn.Module):
-#     def __init__(self, 
-#                  banddef,
-#                  num_classes: int = 2,
-#                  num_heads: int = 8,
-#                  dim_proj: int = 64,
-#                  dim_ff: int = 64,
-#                  dropout: float = 0.1,
-#                  agg: str = 'max'):
-#         super().__init__()
-
-#         # Embedding
-#         self.band_concat = BandConcat(banddef)
-#         self.spectral_embed = SpectralEmbed(n_filters=dim_proj)
-
-#         # Attention
-#         self.self_attn = nn.MultiheadAttention(dim_proj, num_heads, dropout=dropout, bias=True, batch_first=True)
-
-#         # Feedforward
-#         self.linear1 = nn.Linear(dim_proj, dim_ff, bias=True)
-#         self.dropout = nn.Dropout(dropout)
-#         self.linear2 = nn.Linear(dim_ff, dim_proj, bias=True)
-
-#         # Normalization
-#         self.norm1 = nn.LayerNorm(dim_proj, eps=1e-5, bias=True)
-#         self.norm2 = nn.LayerNorm(dim_proj, eps=1e-5, bias=True)
-#         self.dropout1 = nn.Dropout(dropout)
-#         self.dropout2 = nn.Dropout(dropout)
-#         self.gelu = torch.nn.functional.gelu
-
-#         # Classification
-#         self.aggregate = agg
-#         self.classifier = nn.Linear(dim_proj, num_classes)
-#         self.initialize_weights()
-
-
-#     def forward(self, x):
-#         x = self.band_concat(x)
-#         x = self.spectral_embed(x)
-
-#         # Transformer without skip connections
-#         x = self._sa_block(self.norm1(x))
-#         x = self._ff_block(self.norm2(x))
-
-#         if self.aggregate == 'mean':
-#             x = torch.mean(x, dim=1)
-#         elif self.aggregate == 'max':
-#             x,_ = torch.max(x, dim=1)
-#         x = self.classifier(x)
-#         return x
-
-#     def initialize_weights(self):
-#         for module in self.modules():
-#             if isinstance(module, (nn.Linear, nn.Conv1d)):
-#                 nn.init.xavier_uniform_(module.weight)
-#                 if module.bias is not None:
-#                     nn.init.constant_(module.bias, 0)
-
-#     def _sa_block(self, x):
-#         x = self.self_attn(x, x, x)[0]
-#         return self.dropout1(x)
-    
-#     def _ff_block(self, x):
-#         x = self.linear2(self.dropout(self.gelu(self.linear1(x))))
-#         return self.dropout2(x)

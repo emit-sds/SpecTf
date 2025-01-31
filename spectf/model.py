@@ -360,7 +360,6 @@ class SpecTfEncoder(nn.Module):
         else:
             raise ValueError(f'Aggregation method {agg} is not implemented.')
 
-        self.aggregate = agg
         self.initialize_weights()
 
     def forward(self, x: torch.Tensor):

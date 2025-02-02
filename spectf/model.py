@@ -73,8 +73,7 @@ class SpectralEmbed(nn.Module):
 
         The default activation 'tanh' is recommended to mitigate exploding
         gradients during training. Other methods such as gradient clipping
-        are also effective, in which case other unbounded activations like
-        'relu' or 'gelu', or None at all, can be used.
+        are also effective, in which case None can be passed as the activation.
 
         Args:
             n_filters (int): Number of filters for the linear layer. Default 64.
@@ -85,10 +84,6 @@ class SpectralEmbed(nn.Module):
 
         if activation == 'tanh':
             self.activation = nn.Tanh()
-        elif activation == 'relu':
-            self.activation = nn.ReLU()
-        elif activation == 'gelu':
-            self.activation = nn.GELU()
         elif activation is None:
             self.activation = nn.Identity()
         else:
@@ -342,6 +337,9 @@ class SpecTfEncoder(nn.Module):
     appropriate when the overall shape of the spectrum is important. While the
     'flat' aggregation avoids pooling altogether, it fixes the length of the
     input sequence, and limits the model to a fixed set of bands.
+
+    Model weights are initialized using Xavier initialization and model biases
+    are initialized to zero with self.initialize_weights().
 
     Attributes:
         band_concat: BandConcat module

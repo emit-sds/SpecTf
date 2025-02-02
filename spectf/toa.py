@@ -26,7 +26,7 @@ def l1b_to_toa_arr(rdnfp: str, obsfp: str, irrfp: str):
 
     Returns:
         toa_refl (np.ndarray): The calculated top-of-atmosphere reflectance.
-        banddef (np.ndarray): Array of band definitions from .
+        banddef (np.ndarray): Array of band center wavelengths from metadata.
         metadata (dict): Metadata from the radiance data header.
     """
 

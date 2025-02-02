@@ -1,3 +1,4 @@
+import sys
 import os
 from datetime import datetime
 import h5py
@@ -18,10 +19,10 @@ from sklearn.metrics import (
 )
 import wandb
 
-from cloud.dataset import SpectraDataset
-from cloud.model import SimpleSeqClassifier
-from cloud.cli import spectf
-from cloud.utils import seed as useed
+from spectf.dataset import SpectraDataset
+from spectf.model import SpecTfEncoder
+from spectf.utils import seed as useed
+from spectf_cloud.cli import spectf_cloud
 
 os.environ["WANDB__SERVICE_WAIT"] = "300"
 torch.autograd.set_detect_anomaly(True)
@@ -157,7 +158,7 @@ ENV_VAR_PREFIX = 'SPECTF_TRAIN_'
     help="Training run seed.",
     envvar=f'{ENV_VAR_PREFIX}SEED'
 )
-@spectf.command(
+@spectf_cloud.command(
     add_help_option=True,
     help="Train the SpecTf Hyperspectral Transformer Model."
 )
@@ -239,13 +240,15 @@ def train(
     criterion = nn.CrossEntropyLoss()
 
     banddef = torch.tensor(bands, dtype=torch.float32).to(device)
-    model = SimpleSeqClassifier(banddef,
-                                num_classes=n_cls,
-                                num_heads=arch_heads,
-                                dim_proj=arch_proj_dim,
-                                dim_ff=arch_ff,
-                                dropout=arch_dropout,
-                                agg=arch_agg).to(device)
+    model = SpecTfEncoder(banddef,
+                          num_classes=n_cls,
+                          num_heads=arch_heads,
+                          dim_proj=arch_proj_dim,
+                          dim_ff=arch_ff,
+                          dropout=arch_dropout,
+                          agg=arch_agg,
+                          use_residual=False,
+                          num_layers=1).to(device)
 
     optimizer = schedulefree.AdamWScheduleFree((p for p in model.parameters() if p.requires_grad), lr=lr, warmup_steps=1000)
 
@@ -257,24 +260,29 @@ def train(
 
     # Define wandb
     timestamp = datetime.now().strftime(f"%Y%m%d_%H%M%S_%f_{wandb_name}")
-    run = wandb.init(
-        project = wandb_project,
-        entity = wandb_entity,
-        name = timestamp,
-        dir = './',
-        config = {
-            'dataset_path': dataset,
-            'lr': lr,
-            'epochs': epochs,
-            'batch': batch,
-            'arch_ff': arch_ff,
-            'arch_heads': arch_heads,
-            'arch_dropout': arch_dropout,
-            'arch_proj_dim': arch_proj_dim,
-            'arch_agg': arch_agg
-        },
-        settings=wandb.Settings(_service_wait=300)
-    )
+    try:
+        run = wandb.init(
+            project = wandb_project,
+            entity = wandb_entity,
+            name = timestamp,
+            dir = './',
+            config = {
+                'dataset_path': dataset,
+                'lr': lr,
+                'epochs': epochs,
+                'batch': batch,
+                'arch_ff': arch_ff,
+                'arch_heads': arch_heads,
+                'arch_dropout': arch_dropout,
+                'arch_proj_dim': arch_proj_dim,
+                'arch_agg': arch_agg
+            },
+            settings=wandb.Settings(_service_wait=300)
+        )
+    except Exception as e:
+        print("WandB error!")
+        print(e)
+        sys.exit(1)
 
     # Training loop
     for epoch in range(epochs):
@@ -284,7 +292,7 @@ def train(
 
         train_epoch_loss = 0
         for idx, batch_ in enumerate(train_dataloader):
-            spectra = batch_['spectra'].to(device)
+            spectra = batch_['spectra'].to(device).float()
             labels = batch_['label'].to(device)
 
             optimizer.zero_grad()

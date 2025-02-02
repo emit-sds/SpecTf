@@ -9,18 +9,18 @@ import wandb
 
 from click.testing import CliRunner
 
-from cloud.train import train
-from cloud.comparison_models.train_resnet import resnet
-from cloud.comparison_models.train_xgb import xgboost
-from cloud.model import SimpleSeqClassifier
-from cloud.comparison_models.ResNet import ResNet
-from cloud.comparison_models.train_xgb import xgb
+from spectf_cloud.train import train
+from spectf_cloud.comparison_models.train_resnet import resnet
+from spectf_cloud.comparison_models.train_xgb import xgboost
+from spectf.model import SpecTfEncoder
+from spectf_cloud.comparison_models.ResNet import ResNet
+from spectf_cloud.comparison_models.train_xgb import xgb
 from make_dummy_data import NUM_DATAPOINTS
 
-SPECTF_WANDB_PATH = "cloud.train.wandb"
-RESNET_WANDB_PATH = "cloud.comparison_models.train_resnet.wandb"
-XGBOOST_WANDB_PATH = "cloud.comparison_models.train_xgb.wandb"
-RESNET_OPTIMIZER = "cloud.comparison_models.train_resnet.AdamWScheduleFree"
+SPECTF_WANDB_PATH = "spectf_cloud.train.wandb"
+RESNET_WANDB_PATH = "spectf_cloud.comparison_models.train_resnet.wandb"
+XGBOOST_WANDB_PATH = "spectf_cloud.comparison_models.train_xgb.wandb"
+RESNET_OPTIMIZER = "spectf_cloud.comparison_models.train_resnet.AdamWScheduleFree"
 DUMMY_DATA = "data/mock_dataset.hdf5"
 
 class TestTrainCommands(unittest.TestCase):
@@ -67,7 +67,7 @@ class TestTrainCommands(unittest.TestCase):
             return out
 
         # 2. Invoke the CLI
-        with patch.object(SimpleSeqClassifier, "forward", side_effect=mock_forward_impl) as mock_forward:
+        with patch.object(SpecTfEncoder, "forward", side_effect=mock_forward_impl) as mock_forward:
             with tempfile.TemporaryDirectory() as tmpdir:
                 result = self.runner.invoke(
                     train,
@@ -80,6 +80,10 @@ class TestTrainCommands(unittest.TestCase):
                         "--batch", str(NUM_DATAPOINTS),
                     ],
                 )
+
+                if result.exception:
+                    raise result.exception
+
                 # Should exit successfully
                 self.assertEqual(result.exit_code, 0, msg=f"CLI failed: {result.output}") 
 
@@ -131,7 +135,7 @@ class TestTrainCommands(unittest.TestCase):
                         os.path.join(self.base, DUMMY_DATA),
                         "--train-csv", os.path.join(self.base, "data/mock_train.csv"),
                         "--test-csv", os.path.join(self.base, "data/mock_test.csv"),
-                        "--arch-yaml", os.path.join(os.path.dirname(self.base), "cloud/comparison_models/ResNet/resnet_arch.yml"),
+                        "--arch-yaml", os.path.join(os.path.dirname(self.base), "spectf_cloud/comparison_models/ResNet/resnet_arch.yml"),
                         "--epochs", str(epochs),
                         "--outdir", tmpdir,
                         "--batch", str(NUM_DATAPOINTS),
@@ -186,7 +190,7 @@ class TestTrainCommands(unittest.TestCase):
                     os.path.join(self.base, DUMMY_DATA),
                     "--train-csv", os.path.join(self.base, "data/mock_train.csv"),
                     "--test-csv", os.path.join(self.base, "data/mock_test.csv"),
-                    "--arch-yaml", os.path.join(os.path.dirname(self.base), "cloud/comparison_models/XGBoost/xgboost_arch.yml"),
+                    "--arch-yaml", os.path.join(os.path.dirname(self.base), "spectf_cloud/comparison_models/XGBoost/xgboost_arch.yml"),
                     "--outdir", tmpdir,
                 ],
             )

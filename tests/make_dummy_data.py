@@ -14,7 +14,7 @@ if __name__ == "__main__":
         os.makedirs(os.path.join(base, 'data'))
         
     with h5py.File(os.path.join(base, 'data/mock_dataset.hdf5'), 'w') as f:
-        f.create_dataset('labels', data=np.random.randint(0, NUM_CLASSES, (NUM_DATAPOINTS,)).astype(np.float32))
+        f.create_dataset('labels', data=np.random.randint(0, NUM_CLASSES, (NUM_DATAPOINTS,)))
         fid_arr = np.array([
             np.random.choice(['train', 'test']).encode('utf-8')
             for _ in range(NUM_DATAPOINTS)

@@ -5,7 +5,7 @@ This repository contains code for the Spectroscopic Transformer, a pixel-wise de
 Subdirectories of this repository contain research code for specific publications and/or applications.
 
 > [!NOTE]
-> A future version of this repository will provide the SpecTf model architecture as an installable package.
+> Active development on a more formalized package for easier installation and deployment is ongoing in the [`dev`](https://github.com/emit-sds/SpecTf/tree/dev) branch.
 
 ## Dependencies
 

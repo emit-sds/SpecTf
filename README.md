@@ -4,30 +4,24 @@ This repository contains code for the Spectroscopic Transformer, a pixel-wise de
 
 Subdirectories of this repository contain research code for specific publications and/or applications.
 
-> [!NOTE]
-> A future version of this repository will provide the SpecTf model architecture as an installable package.
+## Included Packages
+### [SpecTf Cloud Masking Model](https://github.com/emit-sds/SpecTf/tree/main/spectf_cloud)
+<p align="center">
+  <img src="https://raw.githubusercontent.com/emit-sds/SpecTf/refs/heads/dev/spectf_cloud/figures/fig4.png" alt="SpecTf Cloud Model Image" width="300" height="250">
+</p>
 
-## Dependencies
+#### Decription
+This package includes both an importable <ins>Python package</ins> and a <ins>CLI interface</ns> for model deployment and training.
 
-> [!NOTE]
-> Conda environment definitions will be provided in the future.
+#### Getting Started
+Check out the docs here!
 
-- [Pytorch](https://pytorch.org/get-started/locally/)
-- [ISOFIT](https://isofit.readthedocs.io/en/latest/custom/installation.html)
-- [Spectral Python](https://www.spectralpython.net/installation.html)
-- [Rasterio](https://rasterio.readthedocs.io/en/stable/installation.html)
-- [Schedulefree](https://github.com/facebookresearch/schedule_free)
-- `sklearn`
-- `pyyaml`
-- `numpy`
-- (for training logging) [WandB](https://docs.wandb.ai/quickstart/)
 
 ## Publications
-
 ### SpecTf: Transformers Enable Data-Driven Imaging Spectroscopy Cloud Detection
 
 Jake H. Lee, Michael Kiper, David R. Thompson, Philip G. Brodrick. *In Review* 
 
 Preprint: https://arxiv.org/abs/2501.04916
 
-For details see the [cloud directory](https://github.com/emit-sds/SpecTf/tree/main/cloud)
+For details see the [cloud directory](https://github.com/emit-sds/SpecTf/tree/main/spectf_cloud)

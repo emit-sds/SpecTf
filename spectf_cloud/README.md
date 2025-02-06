@@ -11,6 +11,8 @@ Preprint: https://arxiv.org/abs/2501.04916
 
 This repository contains the source code used to implement, evaluate, and deploy the SpecTf for EMIT Cloud Masks.
 
+This is a specific implementation of the SpecTf model.
+
 The datasets associated with this repository are available at:
 
 > Lee, J., Kiper, M., Thompson, D. R., & Brodrick, P. (2025). Dataset for "Spectroscopic Transformer for Improved EMIT Cloud Masks" [Data set]. Zenodo. https://doi.org/10.5281/zenodo.14607937

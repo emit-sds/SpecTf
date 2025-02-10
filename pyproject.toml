@@ -9,6 +9,7 @@ authors = [
 ]
 maintainers = [
   {name = "Michael Kiper", email = "michael.kiper@jpl.nasa.gov"},
+  {name = "Jake Lee", email = "jake.h.lee@jpl.nasa.gov"},
 ]
 dependencies = [
   "torch >= 2.5.1",
@@ -24,6 +25,7 @@ dependencies = [
   "spectral >= 0.23.1",
   "isofit >= 3.2.2",
   "xgboost >= 2.1.3",
+  "GDAL ~= 3.9.0",
 ]
 
 scripts = { spectf-cloud = "spectf_cloud.cli:main" }

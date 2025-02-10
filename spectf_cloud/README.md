@@ -24,14 +24,13 @@ To install the `SpecTf Cloud` python package to use as both:
 - A CLI interface for model training and deployment
 follow the below instructions:
 
-1. Install via `pip`  
-```
-pip3 install <tbd until package is deployed on PyPI>
-```
+1. [Install GDAL](https://gdal.org/en/stable/download.html)
+2. `make dev-install` from the repository root.
+3. Future versions will be deployed on PyPI.
 
 
 ## 📁 Project Directory Structure
-Here’s an overview of the key files and directories in this repository:
+Here's an overview of the key files and directories in this repository:
 
 ### **Directories**
 | Directory | Description |

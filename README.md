@@ -5,6 +5,9 @@ This repository contains code for the Spectroscopic Transformer, a pixel-wise de
 Subdirectories of this repository contain research code for specific publications and/or applications.
 
 ## Included Packages
+
+Installation of these packages require an [existing installation of GDAL](https://gdal.org/en/stable/download.html).
+
 ### [SpecTf Cloud Masking Model](https://github.com/emit-sds/SpecTf/tree/main/spectf_cloud)
 <p align="center">
   <img src="https://raw.githubusercontent.com/emit-sds/SpecTf/refs/heads/dev/spectf_cloud/figures/fig4.png" alt="SpecTf Cloud Model Image" width="300" height="250">

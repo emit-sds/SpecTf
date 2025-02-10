@@ -1,13 +1,21 @@
-import rich_click as click
+""" Applies the SpecTf cloud screening model to an EMIT scene.
+
+Copyright 2025 California Institute of Technology
+Apache License, Version 2.0
+
+Author: Jake Lee, jake.h.lee@jpl.nasa.gov
+"""
+
 import logging
-import yaml
 import time
 
+import yaml
+import rich_click as click
 import numpy as np
-import spectral.io.envi as envi
+from osgeo import gdal
 
 import torch
-import torch.nn as nn
+from torch import nn
 from torch.utils.data import DataLoader
 
 from spectf.model import SpecTfEncoder
@@ -16,7 +24,17 @@ from spectf_cloud.cli import spectf_cloud
 
 ENV_VAR_PREFIX = 'SPECTF_DEPLOY_'
 
-# TODO: Refactor this into the CLI 
+numpy_to_gdal = {
+    np.dtype(np.float64): 7,
+    np.dtype(np.float32): 6,
+    np.dtype(np.int32): 5,
+    np.dtype(np.uint32): 4,
+    np.dtype(np.int16): 3,
+    np.dtype(np.uint16): 2,
+    np.dtype(np.uint8): 1,
+}
+
+# TODO: Refactor this into the CLI
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -116,29 +134,32 @@ def deploy(
     device,
     threshold
 ):
-    print("Threads:", torch.get_num_threads())
+    """Applies the SpecTf cloud screening model to an EMIT scene."""
 
     # Open model architecture specification from YAML file
-    with open(arch_spec, 'r') as f:
+    with open(arch_spec, 'r', encoding='utf-8') as f:
         spec = yaml.safe_load(f)
-    
+
     arch = spec['arch']
     inference = spec['inference']
 
     # Setup PyTorch device
     if torch.cuda.is_available() and device != -1:
         device_ = torch.device(f"cuda:{device}")
-        logging.info(f"Device is cuda:{device}")
+        logging.info("Device is cuda:%s", device)
     elif torch.backends.mps.is_available() and torch.backends.mps.is_built():
         device_ = torch.device("mps") # Apple silicon
-        logging.info(f"Device is Apple MPS acceleration")
+        logging.info("Device is Apple MPS acceleration")
     else:
         device_ = torch.device("cpu")
-        logging.info(f"Device is CPU")
-    
+        logging.info("Device is CPU")
+
     # Initialize dataset and dataloader
     dataset = RasterDatasetTOA(rdnfp, obsfp, irradiance, transform=None, keep_bands=keep_bands)
-    dataloader = DataLoader(dataset, batch_size=inference['batch'], shuffle=False, num_workers=inference['workers'])
+    dataloader = DataLoader(dataset,
+                            batch_size=inference['batch'],
+                            shuffle=False,
+                            num_workers=inference['workers'])
 
     # Define and initialize the model
     banddef = torch.tensor(dataset.banddef, dtype=torch.float, device=device_)
@@ -185,33 +206,19 @@ def deploy(
             curr = nxt
             if (i+1) % 100 == 0:
                 end = time.time()
-                logging.info(f"Iter {i}: {(((end-start)/100)*(total_len-i-1))/60:.2f} min remain.")
+                logging.info("Iter %d: %.2f min remain.", i, (((end-start)/100)*(total_len-i-1))/60)
                 start = time.time()
 
     logging.info("Inference complete.")
-    
+
     # Reshape into input shape
-    cloud_mask = cloud_mask.reshape(dataset.shape[0], dataset.shape[1], 1)
+    cloud_mask = cloud_mask.reshape((dataset.shape[0], dataset.shape[1], 1))
 
-    # Prepare metadata for output
-    metadata = dataset.metadata
-    del metadata['wavelength']
-    del metadata['wavelength units']
-    metadata['description'] = 'SpecTf Cloud Mask'
-    metadata['bands'] = 1
-    if proba:
-        metadata['data type'] = 4
-        metadata['data_type'] = 4
-        metadata['band names'] = ['Cloud Probability']
-    else:
-        metadata['data type'] = 1
-        metadata['data_type'] = 1
-        metadata['band names'] = ['Cloud Mask']
+    driver = gdal.GetDriverByName('MEM')
+    ds = driver.Create('', cloud_mask.shape[1], cloud_mask.shape[0], cloud_mask.shape[2], numpy_to_gdal[cloud_mask.dtype])
+    ds.GetRasterBand(1).WriteArray(cloud_mask[:,:,0])
 
-    # Save cloud mask
-    if proba:
-        envi.save_image(outfp, cloud_mask, dtype=np.float32, metadata=metadata, force=True)
-    else:
-        envi.save_image(outfp, cloud_mask, dtype=np.uint8, metadata=metadata, force=True)
+    tiff_driver = gdal.GetDriverByName('GTiff')
+    _ = tiff_driver.CreateCopy(outfp, ds, options=['COMPRESS=LZW', 'COPY_SRC_OVERVIEWS=YES', 'TILED=YES', 'BLOCKXSIZE=256', 'BLOCKYSIZE=256'])
 
-    logging.info(f"Cloud mask saved to {outfp}")
+    logging.info("Cloud mask saved to %s", outfp)

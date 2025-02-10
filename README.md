@@ -14,7 +14,7 @@ Subdirectories of this repository contain research code for specific publication
 This package includes both an importable <ins>Python package</ins> and a <ins>CLI interface</ns> for model deployment and training.
 
 #### Getting Started
-Check out the docs here!
+Check out the docs [here](https://github.com/emit-sds/SpecTf/blob/dev/spectf_cloud/README.md)!
 
 
 ## Publications
@@ -24,4 +24,4 @@ Jake H. Lee, Michael Kiper, David R. Thompson, Philip G. Brodrick. *In Review*
 
 Preprint: https://arxiv.org/abs/2501.04916
 
-For details see the [cloud directory](https://github.com/emit-sds/SpecTf/tree/main/spectf_cloud)
+For details see the [cloud directory](https://github.com/emit-sds/SpecTf/tree/dev/spectf_cloud)

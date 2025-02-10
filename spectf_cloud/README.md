@@ -19,7 +19,7 @@ The datasets associated with this repository are available at:
 
 
 ## 💾 Installation
-To install the SpecTf python package to use as both:
+To install the `SpecTf Cloud` python package to use as both:
 - An importable Python3 package
 - A CLI interface for model training and deployment
 follow the below instructions:
@@ -81,13 +81,13 @@ $ spectf-cloud -h
 ╰───────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
-### 🌈 Using SpecTf to cloud mask your EMIT Scene ☁️
+### 🌈 Using `SpecTf Cloud` to cloud mask your EMIT Scene ☁️
 
 **1. Download the L1B raster products**
 
 EMIT L1B At-Sensor Calibrated Radiance and Geolocation Data is available from the LPDAAC: https://lpdaac.usgs.gov/products/emitl1bradv001/
 
-**2. [Install SpecTf](#Installation)**
+**2. [Install SpecTf Cloud](#Installation)**
 
 Verify it's installed properly with
 ```
@@ -95,7 +95,7 @@ $ which spectf-cloud
 <some-version>
 ```
 
-**2. Use the CLI to Run SpecTf**
+**2. Use the CLI to Run SpecTf Cloud**
 
 ```
 $ spectf-cloud deploy -h
@@ -133,7 +133,7 @@ The ML-ready dataset is available at:
 
 **2. Run the training script**
 
-To reproduce the reported SpecTf model:
+To reproduce the reported SpecTf Cloud model:
 
 ```
 $ spectf-cloud train \

@@ -4,7 +4,7 @@ import yaml
 import time
 
 import numpy as np
-import spectral.io.envi as envi
+from osgeo import gdal
 
 import torch
 import torch.nn as nn
@@ -15,6 +15,16 @@ from spectf.dataset import RasterDatasetTOA
 from spectf_cloud.cli import spectf_cloud
 
 ENV_VAR_PREFIX = 'SPECTF_DEPLOY_'
+
+numpy_to_gdal = {
+    np.dtype(np.float64): 7,
+    np.dtype(np.float32): 6,
+    np.dtype(np.int32): 5,
+    np.dtype(np.uint32): 4,
+    np.dtype(np.int16): 3,
+    np.dtype(np.uint16): 2,
+    np.dtype(np.uint8): 1,
+}
 
 # TODO: Refactor this into the CLI 
 # Configure logging
@@ -191,27 +201,13 @@ def deploy(
     logging.info("Inference complete.")
     
     # Reshape into input shape
-    cloud_mask = cloud_mask.reshape(dataset.shape[0], dataset.shape[1], 1)
+    cloud_mask = cloud_mask.reshape((dataset.shape[0], dataset.shape[1], 1))
 
-    # Prepare metadata for output
-    metadata = dataset.metadata
-    del metadata['wavelength']
-    del metadata['wavelength units']
-    metadata['description'] = 'SpecTf Cloud Mask'
-    metadata['bands'] = 1
-    if proba:
-        metadata['data type'] = 4
-        metadata['data_type'] = 4
-        metadata['band names'] = ['Cloud Probability']
-    else:
-        metadata['data type'] = 1
-        metadata['data_type'] = 1
-        metadata['band names'] = ['Cloud Mask']
+    driver = gdal.GetDriverByName('MEM')
+    ds = driver.Create('', cloud_mask.shape[1], cloud_mask.shape[0], cloud_mask.shape[2], numpy_to_gdal[cloud_mask.dtype])
+    ds.GetRasterBand(1).WriteArray(cloud_mask[:,:,0])
 
-    # Save cloud mask
-    if proba:
-        envi.save_image(outfp, cloud_mask, dtype=np.float32, metadata=metadata, force=True)
-    else:
-        envi.save_image(outfp, cloud_mask, dtype=np.uint8, metadata=metadata, force=True)
+    tiff_driver = gdal.GetDriverByName('GTiff')
+    _ = tiff_driver.CreateCopy(outfp, ds, options=['COMPRESS=LZW', 'COPY_SRC_OVERVIEWS=YES', 'TILED=YES', 'BLOCKXSIZE=256', 'BLOCKYSIZE=256'])
 
     logging.info(f"Cloud mask saved to {outfp}")

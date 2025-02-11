@@ -164,7 +164,7 @@ def deploy(
     # Define and initialize the model
     banddef = torch.tensor(dataset.banddef, dtype=torch.float, device=device_)
     model = SpecTfEncoder(banddef=banddef,
-                          num_classes=2,
+                          dim_output=2,
                           num_heads=arch['n_heads'],
                           dim_proj=arch['dim_proj'],
                           dim_ff=arch['dim_ff'],

@@ -186,14 +186,13 @@ def train(
 
     # Importing the dataset
     for i, ds in enumerate(dataset):
+        f = h5py.File(ds, 'r')
+        bands = f.attrs['bands']
         if i == 0:
-            f = h5py.File(ds, 'r')
             labels = f['labels'][:]
             fids = f['fids'][:]
             spectra = f['spectra'][:]
-            bands = f.attrs['bands']
         else:
-            f = h5py.File(ds, 'r')
             labels = np.concatenate((labels, f['labels'][:]))
             fids = np.concatenate((fids, f['fids'][:]))
             spectra = np.concatenate((spectra, f['spectra'][:]))
@@ -214,14 +213,14 @@ def train(
 
     print("Using specified train/test splits.")
     # Open train csv
-    with open(train_csv, 'r') as f:
+    with open(train_csv, 'r', encoding='utf-8') as f:
         train_fids = [line.strip() for line in f.readlines()]
         train_fids = set(train_fids)
     # Only keep indices of fids that are in the train set
     train_i = [i for i, f in enumerate(fids) if f.decode('utf-8') in train_fids]
 
     # Open test csv
-    with open(test_csv, 'r') as f:
+    with open(test_csv, 'r', encoding='utf-8') as f:
         test_fids = [line.strip() for line in f.readlines()]
         test_fids = set(test_fids)
     # Only keep indices of fids that are in the test set
@@ -241,7 +240,7 @@ def train(
 
     banddef = torch.tensor(bands, dtype=torch.float32).to(device)
     model = SpecTfEncoder(banddef,
-                          num_classes=n_cls,
+                          dim_output=n_cls,
                           num_heads=arch_heads,
                           dim_proj=arch_proj_dim,
                           dim_ff=arch_ff,
@@ -291,7 +290,7 @@ def train(
         optimizer.train()
 
         train_epoch_loss = 0
-        for idx, batch_ in enumerate(train_dataloader):
+        for batch_ in train_dataloader:
             spectra = batch_['spectra'].to(device).float()
             labels = batch_['label'].to(device)
 
@@ -311,7 +310,7 @@ def train(
             })
 
         train_epoch_loss /= len(train_dataloader)
-        
+
         ## MODEL EVALUATION
         model.eval()
         optimizer.eval()
@@ -341,7 +340,7 @@ def train(
         train_true = np.array(train_true) 
         train_pred = np.array(train_pred)
         train_proba = np.array(train_proba)
-        
+
         # Accuracy
         train_acc = accuracy_score(train_true, train_pred)
 
@@ -372,7 +371,6 @@ def train(
         train_best_f1 = np.max(f1s)
         train_best_f05 = np.max(f05s)
         train_best_f025 = np.max(f025s)
-            
 
         test_true = []
         test_pred = []

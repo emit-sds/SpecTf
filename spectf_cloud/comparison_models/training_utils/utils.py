@@ -1,37 +1,6 @@
-import os
 import numpy as np
 import torch
-import random
 from sklearn.metrics import fbeta_score
-from spectf.utils import get_drop_wls
-
-BANDEFF = np.load(os.path.join(os.path.dirname(__file__), 'banddef.npy'))
-
-def get_x_ticks():
-    return range(len(BANDEFF))[::50], np.round(BANDEFF[::50])
-
-def get_good_bands():
-    banddef = BANDEFF
-    dropbands = [np.argmin(np.abs(banddef - wl)) for wl in get_drop_wls()]
-    return torch.tensor(np.delete(banddef, dropbands))
-
-def get_good_bands_data(data):
-    banddef = BANDEFF
-    dropbands = [np.argmin(np.abs(banddef - wl)) for wl in get_drop_wls()]
-    return torch.tensor(np.delete(data, dropbands, axis=-1))
-
-def insert_bad_bands_data(modified_data):
-    banddef = BANDEFF
-    insert_indices = [np.argmin(np.abs(banddef - wl)) for wl in get_drop_wls()]
-    full_data = np.full(len(banddef), np.nan)
-    good_data_indices = [i for i in range(len(banddef)) if i not in insert_indices]
-    full_data[..., good_data_indices] = modified_data
-    return full_data
-
-def flatten_geotiff_data(data):
-    if len(data) == 3:
-        return data.reshape((data.shape[0]*data.shape[1], data.shape[2]))
-    return data
 
 def get_device():
     if torch.cuda.is_available():
@@ -40,14 +9,6 @@ def get_device():
         return torch.device("mps") # Apple silicon
     else:
         return torch.device("cpu")
-
-# I know the answer of the universe is 42, but https://arxiv.org/pdf/2109.08203
-# "Are there black swans, i.e., seeds that produce radically different results? 
-# Yes. On a scanning of 10^4 seeds, we obtained a difference between the maximum and minimum accuracy close to 2% 
-# which is above the threshold commonly used by the computer vision community of what is considered significant."
-def set_manual_seed(s:int=3407):
-    random.seed(s)
-    torch.manual_seed(s)
 
 def gen_train_test_split(fids, train_split:str, test_split:str, return_fids=False):
     """The 'train_split' and 'test_split' parameters need to be file paths to a text file of fids"""

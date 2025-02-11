@@ -350,7 +350,7 @@ class SpecTfEncoder(nn.Module):
     """
     def __init__(self,
                  banddef: torch.Tensor,
-                 num_classes: int = 2,
+                 dim_output: int = 2,
                  num_heads: int = 8,
                  dim_proj: int = 64,
                  dim_ff: int = 64,
@@ -362,7 +362,7 @@ class SpecTfEncoder(nn.Module):
 
         Args:
             banddef (torch.Tensor): Band center wavelengths.
-            num_classes (int): Number of classes for classification. Default 2.
+            dim_output (int): Output dimension of the model. Default 2.
             num_heads (int): Number of attention heads. Must be a divisor of
                              dim_proj. Default 8.
             dim_proj (int): Dimension of the projected tensors. Default 64.
@@ -389,13 +389,13 @@ class SpecTfEncoder(nn.Module):
         # Head
         if agg == 'mean':
             self.aggregate = lambda x: torch.mean(x, dim=1)
-            self.head = nn.Linear(dim_proj, num_classes)
+            self.head = nn.Linear(dim_proj, dim_output)
         elif agg == 'max':
             self.aggregate = lambda x: torch.max(x, dim=1)[0]
-            self.head = nn.Linear(dim_proj, num_classes)
+            self.head = nn.Linear(dim_proj, dim_output)
         elif agg == 'flat':
             self.aggregate = lambda x: torch.flatten(x, start_dim=1)
-            self.head = nn.Linear(banddef.shape[0] * dim_proj, num_classes)
+            self.head = nn.Linear(banddef.shape[0] * dim_proj, dim_output)
         else:
             raise ValueError(f'Aggregation method {agg} is not implemented.')
 

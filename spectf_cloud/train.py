@@ -158,6 +158,14 @@ ENV_VAR_PREFIX = 'SPECTF_TRAIN_'
     help="Training run seed.",
     envvar=f'{ENV_VAR_PREFIX}SEED'
 )
+@click.option(
+    "--save-every-epoch",
+    is_flag=True,
+    default=False,
+    help="Save the model's state every epoch.",
+    envvar=f'{ENV_VAR_PREFIX}SAVE_EVERY_EPOCH'
+)
+
 @spectf_cloud.command(
     add_help_option=True,
     help="Train the SpecTf Hyperspectral Transformer Model."
@@ -179,7 +187,8 @@ def train(
     arch_dropout: float,
     arch_agg: str,
     arch_proj_dim: int,
-    seed: int
+    seed: int,
+    save_every_epoch:bool,
 ):
     # Set seed
     useed(seed)
@@ -466,6 +475,8 @@ def train(
             "test/best_f025": test_best_f025,
             "epoch": epoch
         })
-
-    torch.save(model.state_dict(), os.path.join(outdir, f"{timestamp}_{epoch}.pt"))
+        if save_every_epoch:
+            torch.save(model.state_dict(), os.path.join(outdir, f"spectf_cloud_{timestamp}_{epoch}.pt"))
+    if not save_every_epoch:
+        torch.save(model.state_dict(), os.path.join(outdir, f"spectf_cloud_{timestamp}.pt"))
     run.finish()

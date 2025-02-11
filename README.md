@@ -33,6 +33,9 @@ For details see the [cloud directory](https://github.com/emit-sds/SpecTf/tree/de
 This section is to provide a list of all of the envrionment variables related to this package and how they impact the functional behavior.
 
 ### SpecTf
+| Evr Var Name | Description |
+|------|-------------|
+| **SPECTF_CONFIG** | Path to the toml config file - [spectf.toml](https://github.com/emit-sds/SpecTf/blob/dev/spectf/spectf.toml) used by default |
 
 ### SpecTf Cloud
 `*` -> replace with the uppercase name of the parameter and any dashes `-` to be underscores `_`. (i.e. `--arch-proj-dim` -> `SPECTF_TRAIN_ARCH_PROJ_DIM`)

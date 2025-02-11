@@ -18,9 +18,6 @@ import torch
 
 CONFIG_ENV_FILE_VAR = 'SPECTF_CONFIG'
 
-def get_config_file_path():
-    return os.environ.get(CONFIG_ENV_FILE_VAR, op.join(op.dirname(__file__), 'spectf.toml'))
-
 def seed(i=42):
     """ Seed all random number generators """
     random.seed(i)
@@ -47,6 +44,21 @@ def get_date(fid):
     """ Get the date string from full FID """
     return fid.split('_')[0].split('t')[1]
 
+def get_config_file_path() -> str:
+    """Get path to the spectf config file"""
+    return os.environ.get(CONFIG_ENV_FILE_VAR, op.join(op.dirname(__file__), 'spectf.toml'))
+
+def get_drop_wls():
+    """Get the wavelengths to be dropped (found in 'spectf.toml' or other config file)"""
+    toml_file = get_config_file_path()
+    with open(toml_file, "r") as f:
+        wf = toml.load(f)
+        try: 
+            return wf['utils']['drop_wavelengths']
+        except Exception:
+            logging.error("Could not get utils.drop_wavelengths subkeys from config file: %s", toml_file)
+            sys.exit(1)
+
 def drop_bands(spectra: np.ndarray, banddef: np.ndarray, wls: list = None,
                nan: bool = True):
     """
@@ -72,14 +84,7 @@ def drop_bands(spectra: np.ndarray, banddef: np.ndarray, wls: list = None,
     dropbands = []
 
     if wls is None:
-        toml_file = get_config_file_path()
-        with open(toml_file, "r") as f:
-            wf = toml.load(f)
-            try: 
-                wls = wf['utils']['drop_wavelengths']
-            except Exception:
-                logging.error("Could not get utils.drop_wavelengths subkeys from config file: %s", toml_file)
-                sys.exit(1)
+        wls = get_drop_wls()
 
     for wl in wls:
         deltas = np.abs(banddef - wl)
@@ -116,14 +121,7 @@ def drop_banddef(banddef: np.ndarray, wls: list = None):
     """
 
     if wls is None:
-        toml_file = get_config_file_path()
-        with open(toml_file, "r") as f:
-            wf = toml.load(f)
-            try: 
-                wls = wf['utils']['drop_wavelengths']
-            except Exception:
-                logging.error("Could not get utils.drop_wavelengths subkeys from config file: %s", toml_file)
-                sys.exit(1)
+        wls = get_drop_wls()
 
     dropbands = []
     for wl in wls:

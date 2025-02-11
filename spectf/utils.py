@@ -6,14 +6,20 @@ Apache License, Version 2.0
 Author: Jake Lee, jake.h.lee@jpl.nasa.gov
 """
 
-import sys
+import sys, os
 import os.path as op
 import logging
 import re
 import random
+import toml
 
 import numpy as np
 import torch
+
+CONFIG_ENV_FILE_VAR = 'SPECTF_CONFIG'
+
+def get_config_file_path():
+    return os.environ.get(CONFIG_ENV_FILE_VAR, op.join(op.dirname(__file__), 'spectf.toml'))
 
 def seed(i=42):
     """ Seed all random number generators """
@@ -66,9 +72,14 @@ def drop_bands(spectra: np.ndarray, banddef: np.ndarray, wls: list = None,
     dropbands = []
 
     if wls is None:
-        wls = [381.0055, 388.4092, 395.8158, 403.2254,
-            1275.339, 1282.794, 1290.25, 1297.705, 1305.16, 1312.614, 1320.068,
-            2455.994, 2463.381, 2470.767, 2478.153, 2485.538, 2492.923]
+        toml_file = get_config_file_path()
+        with open(toml_file, "r") as f:
+            wf = toml.load(f)
+            try: 
+                wls = wf['utils']['drop_wavelengths']
+            except Exception:
+                logging.error("Could not get utils.drop_wavelengths subkeys from config file: %s", toml_file)
+                sys.exit(1)
 
     for wl in wls:
         deltas = np.abs(banddef - wl)
@@ -105,9 +116,14 @@ def drop_banddef(banddef: np.ndarray, wls: list = None):
     """
 
     if wls is None:
-        wls = [381.0055, 388.4092, 395.8158, 403.2254,
-            1275.339, 1282.794, 1290.25, 1297.705, 1305.16, 1312.614, 1320.068,
-            2455.994, 2463.381, 2470.767, 2478.153, 2485.538, 2492.923]
+        toml_file = get_config_file_path()
+        with open(toml_file, "r") as f:
+            wf = toml.load(f)
+            try: 
+                wls = wf['utils']['drop_wavelengths']
+            except Exception:
+                logging.error("Could not get utils.drop_wavelengths subkeys from config file: %s", toml_file)
+                sys.exit(1)
 
     dropbands = []
     for wl in wls:

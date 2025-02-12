@@ -21,9 +21,10 @@ from spectf_cloud.comparison_models.training_utils import utils
 from spectf_cloud.comparison_models.ResNet import make_model
 from spectf_cloud.comparison_models import train_comparison
 from spectf.utils import seed as useed
+from spectf.utils import get_device
 
 ENV_VAR_PREFIX = "RESNET_TRAIN_"
-DEVICE = utils.get_device()
+DEVICE = get_device()
 
 os.environ["WANDB__SERVICE_WAIT"] = "300"
 torch.autograd.set_detect_anomaly(True)

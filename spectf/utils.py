@@ -117,3 +117,11 @@ def drop_banddef(banddef: np.ndarray, wls: list = None):
     banddef = np.delete(banddef, dropbands, axis=0)
 
     return banddef
+
+def get_device() -> torch.device:
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    elif torch.backends.mps.is_available() and torch.backends.mps.is_built():
+        return torch.device("mps") # Apple silicon
+    else:
+        return torch.device("cpu")

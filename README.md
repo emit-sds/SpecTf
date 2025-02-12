@@ -6,6 +6,8 @@ Subdirectories of this repository contain research code for specific publication
 
 ## Included Packages
 
+Installation of these packages require an [existing installation of GDAL](https://gdal.org/en/stable/download.html).
+
 ### [SpecTf Cloud Masking Model](https://github.com/emit-sds/SpecTf/tree/main/spectf_cloud)
 <p align="center">
   <img src="https://raw.githubusercontent.com/emit-sds/SpecTf/refs/heads/dev/spectf_cloud/figures/fig4.png" alt="SpecTf Cloud Model Image" width="300" height="250">
@@ -14,7 +16,7 @@ Subdirectories of this repository contain research code for specific publication
 #### Decription
 This package includes both an importable <ins>Python package</ins> and a <ins>CLI interface</ns> for model deployment and training.
 
-#### Installation & Getting Started
+#### Getting Started
 Check out the docs [here](https://github.com/emit-sds/SpecTf/blob/dev/spectf_cloud/README.md)!
 
 

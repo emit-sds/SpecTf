@@ -24,7 +24,8 @@ To install the `SpecTf Cloud` python package to use as both:
 - A CLI interface for model training and deployment
 follow the below instructions:
 
-1. [Install GDAL](https://gdal.org/en/stable/download.html) (if you have trouble installing, try `conda install -c conda-forge gdal`)
+1. [Install GDAL](https://gdal.org/en/stable/download.html) 
+    - If you have trouble installing, try `conda install -c conda-forge gdal`
 2. `make dev-install` from the repository root.
 3. Future versions will be deployed on PyPI.
 

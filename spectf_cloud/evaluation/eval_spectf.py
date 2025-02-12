@@ -13,7 +13,7 @@ from sklearn.metrics import fbeta_score, roc_auc_score
 
 from spectf.model import SpecTfEncoder
 from spectf.dataset import SpectraDataset
-from spectf.utils import seed
+from spectf.utils import seed, get_device
 from spectf_cloud.evaluation import cloud_eval
 
 ENV_VAR_PREFIX = "SPECTF_EVAL_SPECTF_"
@@ -114,13 +114,7 @@ def spectf(dataset, weights, test_csv, batch, gpu, arch_ff, arch_heads, arch_pro
     print("Loaded dataset with shape:", spectra.shape)
 
     # Device
-    if torch.cuda.is_available():
-        device = torch.device(f"cuda:{gpu}")
-    elif torch.backends.mps.is_available() and torch.backends.mps.is_built():
-        # apple silicon
-        device = torch.device("mps")
-    else:
-        device = torch.device("cpu")
+    device = get_device()
 
     # Generate a train/test split that prevents FID leakage
     if test_csv:

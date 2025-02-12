@@ -3,6 +3,7 @@ from torch import nn
 from torch import tensor 
 import yaml
 from typing import List
+from spectf.utils import get_device
 
 class RMSNorm(nn.Module):
     def __init__(self, num_features, eps=1e-8):
@@ -121,11 +122,3 @@ def make_model(arch_yml:str, input_dim:int, num_classes:int, arch_subkeys:List[s
         model.load_state_dict(torch.load(weight_file, map_location=get_device()))
         model.eval()
     return model
-
-def get_device():
-    if torch.cuda.is_available():
-        return torch.device("cuda")
-    elif torch.backends.mps.is_available() and torch.backends.mps.is_built():
-        return torch.device("mps") # Apple silicon
-    else:
-        return torch.device("cpu")

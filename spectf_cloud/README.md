@@ -24,7 +24,8 @@ To install the `SpecTf Cloud` python package to use as both:
 - A CLI interface for model training and deployment
 follow the below instructions:
 
-1. [Install GDAL](https://gdal.org/en/stable/download.html)
+1. [Install GDAL](https://gdal.org/en/stable/download.html) 
+    - If you have trouble installing, try `conda install -c conda-forge gdal`
 2. `make dev-install` from the repository root.
 3. Future versions will be deployed on PyPI.
 
@@ -158,29 +159,31 @@ $ spectf-cloud train \
 
 **All training options:**
 ```
-$ spectf-cloud train -h
+$ spectf-cloud train --help
 
  Usage: spectf-cloud train [OPTIONS] DATASET...
 
  Train the SpecTf Hyperspectral Transformer Model.
 
-╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│    --seed               INTEGER          Training run seed. [default: 42]                                       │
-│    --arch-proj-dim      INTEGER          Projection dimensions. [default: 64]                                   │
-│    --arch-agg           [mean|max|flat]  Aggregate method prior to classification. [default: max]               │
-│    --arch-dropout       FLOAT            Dropout percentage for overfit prevention. [default: 0.1]              │
-│    --arch-heads         INTEGER          Number of heads for multihead attention. [default: 8]                  │
-│    --arch-ff            INTEGER          Feed-forward dimensions. [default: 64]                                 │
-│    --gpu                INTEGER          GPU device to use (-1 means CPU). [default: -1]                        │
-│    --lr                 FLOAT            Learning rate for training. [default: 0.0001]                          │
-│    --batch              INTEGER          Batch size for training. [default: 256]                                │
-│    --epochs             INTEGER          Number of epochs for training. [default: 50]                           │
-│    --wandb-name         TEXT             Project name to be appended to timestamp for wandb name. [default: ""] │
-│    --wandb-project      TEXT             WandB project to be logged to. [default: ""]                           │
-│    --wandb-entity       TEXT             WandB entity. [default: ""]                                            │
-│    --outdir             TEXT             Output directory for models. [default: ./outdir]                       │
-│ *  --test-csv           FILE             Filepath to test FID csv. [required]                                   │
-│ *  --train-csv          FILE             Filepath to train FID csv. [required]                                  │
-│    --help           -h                   Show this message and exit.                                            │
-╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────╮
+│    --save-every-epoch                       Save the model's state every epoch.                         │
+│    --seed                  INTEGER          Training run seed. [default: 42]                            │
+│    --arch-proj-dim         INTEGER          Projection dimensions. [default: 64]                        │
+│    --arch-agg              [mean|max|flat]  Aggregate method prior to classification. [default: max]    │
+│    --arch-dropout          FLOAT            Dropout percentage for overfit prevention. [default: 0.1]   │
+│    --arch-heads            INTEGER          Number of heads for multihead attention. [default: 8]       │
+│    --arch-ff               INTEGER          Feed-forward dimensions. [default: 64]                      │
+│    --gpu                   INTEGER          GPU device to use (-1 means CPU). [default: -1]             │
+│    --lr                    FLOAT            Learning rate for training. [default: 0.0001]               │
+│    --batch                 INTEGER          Batch size for training. [default: 256]                     │
+│    --epochs                INTEGER          Number of epochs for training. [default: 50]                │
+│    --wandb-name            TEXT             Project name to be appended to timestamp for wandb name.    │
+│                                             [default: ""]                                               │
+│    --wandb-project         TEXT             WandB project to be logged to. [default: ""]                │
+│    --wandb-entity          TEXT             WandB entity. [default: ""]                                 │
+│    --outdir                TEXT             Output directory for models. [default: ./outdir]            │
+│ *  --test-csv              FILE             Filepath to test FID csv. [required]                        │
+│ *  --train-csv             FILE             Filepath to train FID csv. [required]                       │
+│    --help              -h                   Show this message and exit.                                 │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```

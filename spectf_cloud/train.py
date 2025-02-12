@@ -22,6 +22,7 @@ import wandb
 from spectf.dataset import SpectraDataset
 from spectf.model import SpecTfEncoder
 from spectf.utils import seed as useed
+from spectf.utils import get_device
 from spectf_cloud.cli import spectf_cloud
 
 os.environ["WANDB__SERVICE_WAIT"] = "300"
@@ -204,12 +205,7 @@ def train(
         os.mkdir(outdir)
 
     # Device
-    if torch.cuda.is_available():
-        device = torch.device(f"cuda:{gpu}")
-    elif torch.backends.mps.is_available() and torch.backends.mps.is_built():
-        device = torch.device("mps")
-    else:
-        device = torch.device("cpu")
+    device = get_device()
 
     print("Using specified train/test splits.")
     # Open train csv

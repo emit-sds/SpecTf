@@ -2,14 +2,6 @@ import numpy as np
 import torch
 from sklearn.metrics import fbeta_score
 
-def get_device():
-    if torch.cuda.is_available():
-        return torch.device(f"cuda")
-    elif torch.backends.mps.is_available() and torch.backends.mps.is_built():
-        return torch.device("mps") # Apple silicon
-    else:
-        return torch.device("cpu")
-
 def gen_train_test_split(fids, train_split:str, test_split:str, return_fids=False):
     """The 'train_split' and 'test_split' parameters need to be file paths to a text file of fids"""
 

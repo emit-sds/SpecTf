@@ -5,3 +5,4 @@ build
 *.egg-info
 .vscode
 tests/data
+*.ipynb_checkpoints

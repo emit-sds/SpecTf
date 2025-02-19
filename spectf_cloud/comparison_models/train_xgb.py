@@ -10,7 +10,7 @@ import time
 import wandb
 from sklearn.metrics import fbeta_score, log_loss, confusion_matrix
 
-from spectf_cloud.comparison_models import train_comparison
+from spectf_cloud.comparison_models import train_comparison, MAIN_CALL_ERR_MSG
 from spectf_cloud.comparison_models.training_utils import utils
 
 ENV_VAR_PREFIX = "XGBOOST_TRAIN_"
@@ -233,3 +233,5 @@ def xgboost(
     save_f_beta_scores(model, X_test, Y_test, outdir)
     ################################################################################
 
+if __name__ == "__main__":
+    print(MAIN_CALL_ERR_MSG % "train-comparison xgboost")

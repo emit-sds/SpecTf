@@ -19,7 +19,7 @@ import rich_click as click
 
 from spectf_cloud.comparison_models.training_utils import utils
 from spectf_cloud.comparison_models.ResNet import make_model
-from spectf_cloud.comparison_models import train_comparison
+from spectf_cloud.comparison_models import train_comparison, MAIN_CALL_ERR_MSG
 from spectf.utils import seed as useed
 from spectf.utils import get_device
 
@@ -380,3 +380,6 @@ def resnet(
     ## save F Scores & metrics #####################################################
     save_f_beta_scores(model, X_test, Y_test.cpu().numpy(), outdir, prefix, chunk_logits=False)
     ################################################################################
+
+if __name__ == "__main__":
+    print(MAIN_CALL_ERR_MSG % "train-comparison resnet")

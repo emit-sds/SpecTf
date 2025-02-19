@@ -14,7 +14,7 @@ from sklearn.metrics import fbeta_score, roc_auc_score
 from spectf.model import SpecTfEncoder
 from spectf.dataset import SpectraDataset
 from spectf.utils import seed, get_device
-from spectf_cloud.evaluation import cloud_eval
+from spectf_cloud.evaluation import cloud_eval, MAIN_CALL_ERR_MSG
 
 ENV_VAR_PREFIX = "SPECTF_EVAL_SPECTF_"
 
@@ -230,3 +230,6 @@ def spectf(dataset, weights, test_csv, batch, gpu, arch_ff, arch_heads, arch_pro
     print(f"Test F0.5 : {test_best_f05:.4f} @ {test_best_th_f05:.2f}")
     print(f"Test F0.25: {test_best_f025:.4f} @ {test_best_th_f025:.2f}")
     print(f"Test F0.1 : {test_best_f01:.4f} @ {test_best_th_f01:.2f}")
+
+if __name__ == "__main__":
+    print(MAIN_CALL_ERR_MSG % "cloud-eval l2a")

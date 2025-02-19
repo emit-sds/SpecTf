@@ -5,7 +5,9 @@ import time, datetime
 
 from typing import Any, Dict, Optional, List
 
-import spectf
+MAIN_CALL_ERR_MSG = """
+\033[31mILLEGAL CALL:\033[0m Attempt made to run this file directly. Please use the `\033[36mspectf-cloud %s\033[0m` CLI command instead.
+"""
 
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 
@@ -82,3 +84,7 @@ from spectf_cloud import train, deploy, evaluation, comparison_models
 
 def main() -> None:
     spectf_cloud(obj=SpecTfCliMetadata())
+
+
+if __name__ == "__main__":
+    print(MAIN_CALL_ERR_MSG)

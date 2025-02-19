@@ -23,7 +23,7 @@ from spectf.dataset import SpectraDataset
 from spectf.model import SpecTfEncoder
 from spectf.utils import seed as useed
 from spectf.utils import get_device
-from spectf_cloud.cli import spectf_cloud
+from spectf_cloud.cli import spectf_cloud, MAIN_CALL_ERR_MSG
 
 os.environ["WANDB__SERVICE_WAIT"] = "300"
 torch.autograd.set_detect_anomaly(True)
@@ -476,3 +476,6 @@ def train(
     if not save_every_epoch:
         torch.save(model.state_dict(), os.path.join(outdir, f"spectf_cloud_{timestamp}.pt"))
     run.finish()
+
+if __name__ == "__main__":
+    print(MAIN_CALL_ERR_MSG % "train")

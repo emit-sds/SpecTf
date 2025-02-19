@@ -20,7 +20,7 @@ from torch.utils.data import DataLoader
 
 from spectf.model import SpecTfEncoder
 from spectf.dataset import RasterDatasetTOA
-from spectf_cloud.cli import spectf_cloud
+from spectf_cloud.cli import spectf_cloud, MAIN_CALL_ERR_MSG
 
 ENV_VAR_PREFIX = 'SPECTF_DEPLOY_'
 
@@ -222,3 +222,6 @@ def deploy(
     _ = tiff_driver.CreateCopy(outfp, ds, options=['COMPRESS=LZW', 'COPY_SRC_OVERVIEWS=YES', 'TILED=YES', 'BLOCKXSIZE=256', 'BLOCKYSIZE=256'])
 
     logging.info("Cloud mask saved to %s", outfp)
+
+if __name__ == "__main__":
+    print(MAIN_CALL_ERR_MSG % "deploy")

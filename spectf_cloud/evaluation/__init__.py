@@ -3,7 +3,7 @@ __all__ = [
     'eval_spectf',
 ]
 
-from spectf_cloud.cli import spectf_cloud
+from spectf_cloud.cli import spectf_cloud, MAIN_CALL_ERR_MSG
 
 @spectf_cloud.group(
     help="Evaluation commands for SpecTf and L2A Baseline."

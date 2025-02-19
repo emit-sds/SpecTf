@@ -3,7 +3,7 @@ __all__ = [
     'train_xgb',
 ]
 
-from spectf_cloud.cli import spectf_cloud
+from spectf_cloud.cli import spectf_cloud, MAIN_CALL_ERR_MSG
 
 @spectf_cloud.group(
     help="Training commands for the ResNet and XGBoost comparison models."

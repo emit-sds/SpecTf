@@ -101,8 +101,7 @@ def drop_banddef(
 
 def get_device(gpu:Optional[int]=None) -> torch.device:
     if torch.cuda.is_available():
-        c = f"cuda:{gpu}" if gpu else "cuda"
-        return torch.device(c)
+        return torch.device(f"cuda:{gpu}" if gpu else "cuda")
     elif torch.backends.mps.is_available() and torch.backends.mps.is_built():
         return torch.device("mps") # Apple silicon
     else:

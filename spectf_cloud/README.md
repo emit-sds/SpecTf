@@ -51,7 +51,7 @@ Here's an overview of the key files and directories in this repository:
 | **`model.py`** | SpecTf model architecture definition in PyTorch. |
 | **`toa.py`** | Helper script for calculating the Top-of-Atmosphere Reflectance in-memory. |
 | **`train.py`** | Training script to retrain/reproduce the SpecTf Cloud model. See [Usage](#Usage) for details. |
-| **`arch.yml`** | Plaintext definition of model architecture parameters. |
+| **`spectf_cloud_config.yml`** | Plaintext definition of model architecture parameters. |
 | **`weights.pt`** | Pretrained SpecTf model weights. |
 
 ---
@@ -59,6 +59,24 @@ Here's an overview of the key files and directories in this repository:
 ### **Notes**
 - The `deploy.py` and `train.py` scripts are the **main entry points** for model inference and training.
 - `datasets/` and `evaluation/` contain **important assets** for benchmarking the model.
+
+## 💽 Dataset
+The datasets are [availible on zenodo](https://doi.org/10.5281/zenodo.14607937)
+- [download Labelbox data](https://zenodo.org/records/14614218/files/spectf_cloud_lbox.hdf5?download=1)
+- [download MMGIS data](https://zenodo.org/records/14614218/files/spectf_cloud_mmgis.hdf5?download=1)
+
+There are 2 datasets used in the inital training of SpecTf Cloud for our publication:
+1. An initial round of data collection and labeling done on [Labelbox](https://labelbox.com)
+2. A second round of data collected from [MMGIS](https://popo.jpl.nasa.gov/mmgis/?mission=EMIT), targeting the false positives and negatives from an inital model trained with only the Labelbox data
+
+Within each of these datasets, there the following fields:
+| Name | Description | Info |
+|-----------|------------|------------|
+| **spectra** | These are the spectra used for training after specific lost signal-to-noise bands were removed (see `spectf_cloud_config.` for which bands) | Shape: (1841641, 268), Dtype: float64 |
+| **labels** | Discrete lass of the spectra - `0` for Clear and `1` for Cloud | Shape: (1841641,), Dtype: int64 |
+| **fids** | The FID of to which the spectra belongs to | Shape: (1841641,), Dtype: string |
+| **bands** | The wavelengths values (nm) for each band in the spectra - needed for the SpecTf encoding | Shape: (268,), Dtype: float64 - Is an attribute of the dataset|
+| **indices** | These are the X, Y pixel coordinates of the spectra from the FID image | Shape: (1841641, 2), Dtype: int64 |
 
 
 ## 🚀 Usage
@@ -104,18 +122,18 @@ $ spectf-cloud deploy -h
 
  Produce a SpecTf transformer-generated cloud mask.
 
-╭─ Options ─────────────────────────────────────────────────────────────────────────────────────────────╮
-│ --threshold       FLOAT    Threshold for cloud classification. [default: 0.52]                        │
-│ --device          INTEGER  Device specification for PyTorch (-1 for CPU, 0+ for GPU, MPS if           │
-│                            available).                                                                │
-│                            [default: -1]                                                              │
-│ --arch-spec       FILE     Filepath to model architecture YAML specification. [default: arch.yml]     │
-│ --irradiance      FILE     Filepath to irradiance numpy file. [default: irr.npy]                      │
-│ --weights         FILE     Filepath to trained model weights. [default: weights.pt]                   │
-│ --proba                    Output probability map instead of binary cloud mask.                       │
-│ --keep-bands               Keep all bands in the spectra (use for non-EMIT data).                     │
-│ --help        -h           Show this message and exit.                                                │
-╰───────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Options ────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ --threshold       FLOAT    Threshold for cloud classification. [default: 0.52]                                       │
+│ --device          INTEGER  Device specification for PyTorch (-1 for CPU, 0+ for GPU, MPS if                          │
+│                            available).                                                                               │
+│                            [default: -1]                                                                             │
+│ --arch-spec       FILE     Filepath to model architecture YAML specification. [default: spectf_cloud_config.yml]     │
+│ --irradiance      FILE     Filepath to irradiance numpy file. [default: irr.npy]                                     │
+│ --weights         FILE     Filepath to trained model weights. [default: weights.pt]                                  │
+│ --proba                    Output probability map instead of binary cloud mask.                                      │
+│ --keep-bands               Keep all bands in the spectra (use for non-EMIT data).                                    │
+│ --help        -h           Show this message and exit.                                                               │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
 Example:

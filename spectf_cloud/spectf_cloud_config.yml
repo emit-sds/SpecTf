@@ -1,0 +1,10 @@
+architecture:
+  dim_proj: 64
+  num_heads: 8
+  dim_ff: 64
+  agg: max
+inference:
+  batch: 1024
+  workers: 0
+spectra:
+  drop_band_ranges: [[0, 405], [1275, 1321], [2455, 9999]] # values are in nanometers

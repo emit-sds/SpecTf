@@ -191,7 +191,7 @@ $ spectf-cloud train --help
 │    --arch-dropout          FLOAT            Dropout percentage for overfit prevention. [default: 0.1]   │
 │    --arch-heads            INTEGER          Number of heads for multihead attention. [default: 8]       │
 │    --arch-ff               INTEGER          Feed-forward dimensions. [default: 64]                      │
-│    --gpu                   INTEGER          GPU device to use (-1 means CPU). [default: -1]             │
+│    --gpu                   INTEGER          GPU device to use.                                          │
 │    --lr                    FLOAT            Learning rate for training. [default: 0.0001]               │
 │    --batch                 INTEGER          Batch size for training. [default: 256]                     │
 │    --epochs                INTEGER          Number of epochs for training. [default: 50]                │

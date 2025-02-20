@@ -105,10 +105,10 @@ ENV_VAR_PREFIX = 'SPECTF_TRAIN_'
 )
 @click.option(
     "--gpu",
-    default=-1,
+    default=None,
     type=int,
     show_default=True,
-    help="GPU device to use (-1 means CPU).",
+    help="GPU device to use.",
     envvar=f'{ENV_VAR_PREFIX}GPU'
 )
 @click.option(
@@ -214,7 +214,7 @@ def train(
         os.mkdir(outdir)
 
     # Device
-    device = get_device()
+    device = get_device(gpu)
 
     print("Using specified train/test splits.")
     # Open train csv

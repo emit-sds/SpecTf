@@ -11,6 +11,7 @@ import os.path as op
 import logging
 import re
 import random
+from typing import List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -118,9 +119,9 @@ def drop_banddef(banddef: np.ndarray, wls: list = None):
 
     return banddef
 
-def get_device() -> torch.device:
+def get_device(gpu:Optional[int]=None) -> torch.device:
     if torch.cuda.is_available():
-        return torch.device("cuda")
+        return torch.device(f"cuda:{gpu}" if gpu else "cuda")
     elif torch.backends.mps.is_available() and torch.backends.mps.is_built():
         return torch.device("mps") # Apple silicon
     else:

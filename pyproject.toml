@@ -1,7 +1,7 @@
 [project]
 name = "spectf"
 version = "1.0.1"
-requires-python = ">=3.9"
+requires-python = ">=3.9, <3.13"
 authors = [
   {name = "Michael Kiper"},
   {name = "Jake H Lee"},

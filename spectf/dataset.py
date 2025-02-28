@@ -7,6 +7,7 @@ Author: Jake Lee, jake.h.lee@jpl.nasa.gov
 """
 
 from collections.abc import Callable
+from typing import List
 
 import numpy as np
 import torch
@@ -34,7 +35,7 @@ class RasterDatasetTOA(Dataset):
     files and generate the TOA reflectance data.
     """
 
-    def __init__(self, rdnfp: str, obsfp: str, irrfp:str,
+    def __init__(self, rdnfp: str, obsfp: str, irrfp:str, rm_bands:List[List[int]]=None,
                  transform: Callable = None, keep_bands: bool = False):
         """ Initialize the RasterDatasetTOA Dataset object.
         Args:
@@ -54,7 +55,9 @@ class RasterDatasetTOA(Dataset):
                                              self.shape[2]))
         if not keep_bands:
             self.toa_arr, self.banddef = drop_bands(self.toa_arr,
-                                                    self.banddef, nan=False)
+                                                    self.banddef, 
+                                                    rm_bands,
+                                                    nan=False)
         self.transform = transform
 
     def __len__(self):

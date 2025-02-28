@@ -96,10 +96,10 @@ logging.basicConfig(
 )
 @click.option(
     "--arch-spec",
-    default="arch.yml",
+    default="spectf_cloud_config.yml",
     type=click.Path(exists=True, dir_okay=False),
     show_default=True,
-    help="Filepath to model architecture YAML specification.",
+    help="Filepath to model architecture YAML specification. This file also needs to contain the bands to remove",
     envvar=f"{ENV_VAR_PREFIX}ARCH_SPEC",
 )
 @click.option(
@@ -140,8 +140,9 @@ def deploy(
     with open(arch_spec, 'r', encoding='utf-8') as f:
         spec = yaml.safe_load(f)
 
-    arch = spec['arch']
+    arch = spec['architecture']
     inference = spec['inference']
+    drop_bands = spec['spectra']['drop_band_ranges']
 
     # Setup PyTorch device
     if torch.cuda.is_available() and device != -1:
@@ -155,7 +156,12 @@ def deploy(
         logging.info("Device is CPU")
 
     # Initialize dataset and dataloader
-    dataset = RasterDatasetTOA(rdnfp, obsfp, irradiance, transform=None, keep_bands=keep_bands)
+    dataset = RasterDatasetTOA(rdnfp, 
+                               obsfp, 
+                               irradiance, 
+                               transform=None, 
+                               keep_bands=keep_bands, 
+                               rm_bands=drop_bands)
     dataloader = DataLoader(dataset,
                             batch_size=inference['batch'],
                             shuffle=False,

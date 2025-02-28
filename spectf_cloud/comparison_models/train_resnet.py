@@ -3,7 +3,6 @@ import torch
 from torch import nn
 from torch.utils.data import TensorDataset, DataLoader
 from schedulefree import AdamWScheduleFree
-import argparse
 import h5py
 import numpy as np
 import yaml
@@ -13,14 +12,27 @@ import datetime
 import os
 import time
 import wandb
-from ResNet import ResNet
-from training_utils import utils
 from typing import Optional
 from sklearn.metrics import fbeta_score, log_loss, confusion_matrix
 
-DEVICE = utils.get_device()
+import rich_click as click
 
-def save_f_beta_scores(model:torch.nn.Module, X:torch.Tensor, Y:np.ndarray, log_dir:str, prefix:str, beta_values=[0.1, 0.25, 0.5, 1, 2], chunk_logits=False):
+from spectf_cloud.comparison_models.training_utils import utils
+from spectf_cloud.comparison_models.ResNet import make_model
+from spectf_cloud.comparison_models import train_comparison, MAIN_CALL_ERR_MSG
+from spectf.utils import seed as useed
+from spectf.utils import get_device
+
+ENV_VAR_PREFIX = "RESNET_TRAIN_"
+DEVICE = get_device()
+
+os.environ["WANDB__SERVICE_WAIT"] = "300"
+torch.autograd.set_detect_anomaly(True)
+
+def cast_numpy(data: np.ndarray) -> torch.Tensor:
+        return torch.from_numpy(data).float().to(DEVICE)
+
+def save_f_beta_scores(model:torch.nn.Module, X:torch.Tensor, Y:np.ndarray, outdir:str, prefix:str, beta_values=[0.1, 0.25, 0.5, 1, 2], chunk_logits=False):
     if Y.ndim == 2: 
         Y = np.argmax(Y, axis=1)
 
@@ -67,86 +79,191 @@ def save_f_beta_scores(model:torch.nn.Module, X:torch.Tensor, Y:np.ndarray, log_
     f_beta_scores.update({'FPR':fpr})
     f_beta_scores.update({'Best F1 Thresh':test_best_f1})
     
-    with h5py.File(os.path.join(log_dir, prefix+"_f_beta_score_tracking.hdf5"), 'w') as f:
+    with h5py.File(os.path.join(outdir, prefix+"_f_beta_score_tracking.hdf5"), 'w') as f:
         for k, v in f_beta_scores.items():
             dataset_name = f"{k}"
             f.create_dataset(dataset_name, data=[v], maxshape=(None,))
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-data_path', type=str, help='Reflectance data path', required=True)
-    parser.add_argument('-model_yaml', type=str, help='Architecture for model file path', required=True)
-    parser.add_argument('-train_split', type=str, help='The path to a text file containing the desired FID train split', required=True)
-    parser.add_argument('-test_split', type=str, help='The path to a text file containing the desired FID test split', required=True)
-    parser.add_argument('-log_dir', type=str, help='Directory to save log', required=False, default='.')
-    parser.add_argument('-wandb_name', type=str, help='W&B run name', required=False)
-    args = parser.parse_args()
-
-    wandb.init()
-    if args.wandb_name:
-        custom_name = args.wandb_name
-    else:
-        custom_name = f"ResNet-{wandb.run.id}-{args.data_path.split('/')[-1].split('.')[0]}"
-    wandb.run.name = custom_name
-    wandb.run.save()
-
-    run(args.data_path, args.model_yaml, args.train_split, args.test_split, args.log_dir, args.wandb_name)
-
-def run(
-        data_path:str, 
-        model_yaml:str, 
-        train_split:str, 
-        test_split:str, 
-        log_dir:str='.', 
-        wandb_name:Optional[str]=None, 
-        ):
-
+@click.argument(
+    "dataset",
+    nargs=-1,
+    type=click.Path(exists=True, dir_okay=False),
+    required=True,
+    envvar=f'{ENV_VAR_PREFIX}DATASET'
+)
+@click.option(
+    "--train-csv",
+    required=True,
+    type=click.Path(exists=True, dir_okay=False),
+    help="Filepath to train FID csv.",
+    envvar=f'{ENV_VAR_PREFIX}TRAIN_CSV'
+)
+@click.option(
+    "--test-csv",
+    required=True,
+    type=click.Path(exists=True, dir_okay=False),
+    help="Filepath to test FID csv.",
+    envvar=f'{ENV_VAR_PREFIX}TEST_CSV'
+)
+@click.option(
+    "--arch-yaml",
+    required=True,
+    type=click.Path(exists=True, dir_okay=False),
+    help="Filepath to the model's architecture yaml file. Needs to have 'architecture' key.",
+    envvar=f'{ENV_VAR_PREFIX}ARCH_YAML'
+)
+@click.option(
+    "--outdir",
+    default="./outdir",
+    show_default=True,
+    help="Output directory for models.",
+    envvar=f'{ENV_VAR_PREFIX}OUTDIR'
+)
+@click.option(
+    "--wandb-entity",
+    default="",
+    show_default=True,
+    help="WandB entity.",
+    envvar=f'{ENV_VAR_PREFIX}WANDB_ENTITY'
+)
+@click.option(
+    "--wandb-project",
+    default="",
+    show_default=True,
+    help="WandB project to be logged to.",
+    envvar=f'{ENV_VAR_PREFIX}WANDB_PROJECT'
+)
+@click.option(
+    "--wandb-name",
+    default="",
+    show_default=True,
+    help="Project name to be appended to timestamp for wandb name.",
+    envvar=f'{ENV_VAR_PREFIX}WANDB_NAME'
+)
+@click.option(
+    "--epochs",
+    type=int,
+    show_default=True,
+    help="Number of epochs for training.",
+    envvar=f'{ENV_VAR_PREFIX}EPOCHS'
+)
+@click.option(
+    "--batch",
+    type=int,
+    show_default=True,
+    help="Batch size for training.",
+    envvar=f'{ENV_VAR_PREFIX}BATCH'
+)
+@click.option(
+    "--lr",
+    type=float,
+    show_default=True,
+    help="Learning rate for training.",
+    envvar=f'{ENV_VAR_PREFIX}LR'
+)
+@click.option(
+    "--seed",
+    default=42,
+    type=int,
+    show_default=True,
+    help="Training run seed.",
+    envvar=f'{ENV_VAR_PREFIX}SEED'
+)
+@train_comparison.command(
+    add_help_option=True,
+    help="Train a ResNet model."
+)
+def resnet(
+    dataset: list,
+    train_csv: str,
+    test_csv: str,
+    arch_yaml: str,
+    outdir: str,
+    wandb_entity: str,
+    wandb_project: str,
+    wandb_name: str,
+    epochs: Optional[int],
+    batch: Optional[int],
+    lr: Optional[float],
+    seed:int,
+):
     ## create logging ##############################################################
     today_date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M")
     prefix = wandb_name if wandb_name is not None else "ResNet"
-    log_filename = os.path.join(log_dir, prefix+f"_{today_date}.log")
+    log_filename = os.path.join(outdir, prefix+f"_{today_date}.log")
     logging.basicConfig(level=logging.INFO, 
                         format='%(asctime)s - %(levelname)s - %(message)s',
                         handlers=[logging.FileHandler(log_filename), logging.StreamHandler()]
                         )   
     logging.info("Starting process...")
     ################################################################################
+    
+    ## load in data and setup ######################################################
+    # Set seed
+    useed(seed)
 
-    with open(model_yaml, 'r') as f:
-        model_meta_data = yaml.safe_load(f)
+    with open(arch_yaml, 'r') as f:
+        model_meta_data:dict = yaml.safe_load(f)
+        hps:dict = model_meta_data['training_hyperparameters']
+        assert "architecture" in list(model_meta_data.keys()), "'architecture' key not found in yaml file."
+
+        ## set the defaults
+        lr = lr if lr is not None else float(hps['optimizer']['lr'])
+        batch = batch if batch is not None else int(hps['bsz'])
+        epochs = epochs if epochs is not None else int(hps['epochs'])
+
+    for i, ds in enumerate(dataset):
+        if i == 0:
+            f = h5py.File(ds, 'r')
+            labels = f['labels'][:]
+            all_fids = f['fids'][:]
+            spectra = f['spectra'][:]
+        else:
+            f = h5py.File(ds, 'r')
+            labels = np.concatenate((labels, f['labels'][:]))
+            all_fids = np.concatenate((all_fids, f['fids'][:]))
+            spectra = np.concatenate((spectra, f['spectra'][:]))
+
+
+     # Define wandb
+    run = wandb.init(
+        project = wandb_project,
+        entity = wandb_entity,
+        name = wandb_name,
+        dir = './',
+        config = {
+            'dataset_path': dataset,
+            'lr': lr,
+            'epochs': epochs,
+            'batch': batch,
+            'arch_file': arch_yaml,
+        },
+        settings=wandb.Settings(_service_wait=300)
+    )
+    if not wandb_name:
+        run.name = f"ResNet-{run.id}"
+        run.save()
+    ################################################################################
     
     ## find device #################################################################
     multiple_gpus = False if torch.cuda.device_count() < 2 else True
     logging.info(f'Using device: {str(DEVICE)} (num gpu: {torch.cuda.device_count()})')
     ################################################################################
 
-    ## load in data and create dataloaders ########################################
-    ## set the seeds
-    utils.set_manual_seed()
-
-    def cast_numpy(data):
-        return torch.from_numpy(data).float().to(DEVICE)
-    
-    hps:dict = model_meta_data['training_hyperparameters']
-    hdf5 = h5py.File(data_path, 'r')    
-    spectra = hdf5['spectra'][:]
-    labels = hdf5['labels'][:]
-    all_fids = hdf5['fids'][:]
-
-    ## Preprocess the data
+    ## Preprocess the data #########################################################
     logging.info('Preprocessing data...')
 
     ## one-hot encode the labels if they aren't already
     num_classes = len(np.unique(labels))
     if labels.ndim == 1 or labels.shape[1] == 1:
-        labels = np.eye(num_classes)[labels]
+        labels = np.eye(num_classes)[labels.astype(np.int32)]
 
     start = time.time()
 
     train_indices, test_indices, train_fids, test_fids = utils.gen_train_test_split(fids=all_fids, 
-                                                                              train_split=train_split, 
-                                                                              test_split=test_split, 
+                                                                              train_split=train_csv, 
+                                                                              test_split=test_csv, 
                                                                               return_fids=True)
 
     X_test, Y_test = cast_numpy(spectra[test_indices]), cast_numpy(labels[test_indices])
@@ -160,7 +277,7 @@ def run(
     end = time.time()
     logging.info(f'Preprocessing complete: {(end-start):.2f}')
     
-    batch_size = int(hps['bsz'])
+    batch_size = batch
     train_dataset = TensorDataset(X_train, Y_train)
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     test_dataset = TensorDataset(X_test, Y_test)
@@ -171,22 +288,19 @@ def run(
     ## create model ################################################################
     input_dim = spectra.shape[-1]
 
-    model = ResNet.make_model(model_yaml, input_dim=input_dim, num_classes=num_classes, arch_subkeys=["architecture"])
+    model = make_model(arch_yaml, input_dim=input_dim, num_classes=num_classes, arch_subkeys=["architecture"])
     model = model.to(DEVICE)
     if multiple_gpus:
         model = nn.DataParallel(model)
-
-    ## re-set the seeds. if one model samples more random numbers (more params) than another, then it could potentially go out of wack
-    utils.set_manual_seed()
     ################################################################################
 
 
     ## create optimizer, scheduler, and loss fn ####################################
     criterion = torch.nn.BCEWithLogitsLoss().to(DEVICE)
     optimizer = AdamWScheduleFree(
-            model.parameters(),
-            lr=float(hps['optimizer']['lr']),
-            betas=(float(hps['optimizer']['beta_1']), float(hps['optimizer']['beta_2'])),
+        model.parameters(),
+        lr=lr,
+        betas=(float(hps['optimizer']['beta_1']), float(hps['optimizer']['beta_2'])),
     )
     ################################################################################
 
@@ -194,7 +308,7 @@ def run(
     ## training loop ###############################################################
     logging.info('Starting training...')
     start = time.time()
-    for epoch in range(int(hps['epochs'])):
+    for epoch in range(epochs):
         model.train()
         running_loss = 0.0
 
@@ -244,7 +358,7 @@ def run(
             **{f"test_{k}": v for k, v in fbeta_scores.items()}
         })
         
-        logging.info(f"Epoch [{epoch+1}/{int(hps['epochs'])}]")
+        logging.info(f"Epoch [{epoch+1}/{epochs}]")
         logging.info(f"Train Loss: {running_loss/len(train_loader):.4f}")
         logging.info(f"Test Loss: {val_loss/len(test_loader):.4f}")
         logging.info(f"Test Acc: {val_acc:.2f}%")
@@ -258,11 +372,14 @@ def run(
 
 
     ## save model ##################################################################
-    weights_path = os.path.join(log_dir, prefix+f"_{today_date}.pt")
+    weights_path = os.path.join(outdir, prefix+f"_{today_date}.pt")
     torch.save(model.state_dict(), weights_path)
     logging.info(f"Saved model weights to {weights_path}")
     ################################################################################
 
     ## save F Scores & metrics #####################################################
-    save_f_beta_scores(model, X_test, Y_test.cpu().numpy(), log_dir, prefix, chunk_logits=False)
+    save_f_beta_scores(model, X_test, Y_test.cpu().numpy(), outdir, prefix, chunk_logits=False)
     ################################################################################
+
+if __name__ == "__main__":
+    print(MAIN_CALL_ERR_MSG % "train-comparison resnet")

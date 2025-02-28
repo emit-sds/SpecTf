@@ -1,33 +1,43 @@
-from datetime import datetime
-import argparse
+import rich_click as click
 import h5py
 
 import numpy as np
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import fbeta_score, roc_auc_score
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Train a classification model on tiled methane data.")
+from spectf_cloud.evaluation import cloud_eval, MAIN_CALL_ERR_MSG
 
-    parser.add_argument('dataset',          help="Filepaths of the hdf5 datasets",
-                                            nargs='+',
-                                            type=str)
-    parser.add_argument('--test-csv',       help="Filepath to test FID csv.",
-                                            type=str,
-                                            required=True)
+ENV_VAR_PREFIX = "SPECTF_EVAL_L2A_"
 
-    args = parser.parse_args()
-
+@click.argument(
+    "dataset",
+    nargs=-1,  # Allows 1+ datasets. Use nargs='+' to ensure at least one is required.
+    type=click.Path(exists=True),
+    required=True,
+    envvar=f"{ENV_VAR_PREFIX}DATASET",
+)
+@click.option(
+    "--test-csv",
+    required=True,
+    type=click.Path(exists=True),
+    help="Filepath to test FID csv.",
+    envvar=f"{ENV_VAR_PREFIX}TEST_CSV"
+)
+@cloud_eval.command(
+    add_help_option=True,
+    help="Evaluate the EMIT L2A classification model with test data."
+)
+def l2a(dataset, test_csv):
     # Importing the dataset
-    for i, dataset in enumerate(args.dataset):
+    for i, ds in enumerate(dataset):
         if i == 0:
-            f = h5py.File(dataset, 'r')
+            f = h5py.File(ds, 'r')
             labels = f['labels'][:]
             fids = f['fids'][:]
             spectra = f['spectra'][:]
             bands = f.attrs['bands']
         else:
-            f = h5py.File(dataset, 'r')
+            f = h5py.File(ds, 'r')
             labels = np.concatenate((labels, f['labels'][:]))
             fids = np.concatenate((fids, f['fids'][:]))
             spectra = np.concatenate((spectra, f['spectra'][:]))
@@ -35,9 +45,9 @@ if __name__ == "__main__":
     print("Loaded dataset with shape:", spectra.shape)
 
     # Generate a train/test split that prevents FID leakage
-    if args.test_csv:
+    if test_csv:
         # Open test csv
-        with open(args.test_csv, 'r') as f:
+        with open(test_csv, 'r') as f:
             test_fids = [line.strip() for line in f.readlines()]
             test_fids = set(test_fids)
         # Only keep indices of fids that are in the test set
@@ -89,3 +99,6 @@ if __name__ == "__main__":
 
     test_auc = roc_auc_score(test_true, test_pred)
     print(f"Test AUC: {test_auc:.4f}")
+
+if __name__ == "__main__":
+    print(MAIN_CALL_ERR_MSG % "cloud-eval l2a")

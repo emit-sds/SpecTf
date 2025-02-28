@@ -4,30 +4,44 @@ This repository contains code for the Spectroscopic Transformer, a pixel-wise de
 
 Subdirectories of this repository contain research code for specific publications and/or applications.
 
-> [!NOTE]
-> Active development on a more formalized package for easier installation and deployment is ongoing in the [`dev`](https://github.com/emit-sds/SpecTf/tree/dev) branch.
+## Included Packages
 
-## Dependencies
+Installation of these packages require an [existing installation of GDAL](https://gdal.org/en/stable/download.html).
 
-> [!NOTE]
-> Conda environment definitions will be provided in the future.
+### [SpecTf Cloud Masking Model](https://github.com/emit-sds/SpecTf/tree/main/spectf_cloud)
+<p align="center">
+  <img src="https://raw.githubusercontent.com/emit-sds/SpecTf/refs/heads/dev/spectf_cloud/figures/fig4.png" alt="SpecTf Cloud Model Image" width="300" height="250">
+</p>
 
-- [Pytorch](https://pytorch.org/get-started/locally/)
-- [ISOFIT](https://isofit.readthedocs.io/en/latest/custom/installation.html)
-- [Spectral Python](https://www.spectralpython.net/installation.html)
-- [Rasterio](https://rasterio.readthedocs.io/en/stable/installation.html)
-- [Schedulefree](https://github.com/facebookresearch/schedule_free)
-- `sklearn`
-- `pyyaml`
-- `numpy`
-- (for training logging) [WandB](https://docs.wandb.ai/quickstart/)
+#### Decription
+This package includes both an importable <ins>Python package</ins> and a <ins>CLI interface</ns> for model deployment and training.
+
+#### Getting Started
+Check out the docs [here](https://github.com/emit-sds/SpecTf/blob/dev/spectf_cloud/README.md)!
+
 
 ## Publications
-
 ### SpecTf: Transformers Enable Data-Driven Imaging Spectroscopy Cloud Detection
 
 Jake H. Lee, Michael Kiper, David R. Thompson, Philip G. Brodrick. *In Review* 
 
 Preprint: https://arxiv.org/abs/2501.04916
 
-For details see the [cloud directory](https://github.com/emit-sds/SpecTf/tree/main/cloud)
+For details see the [cloud directory](https://github.com/emit-sds/SpecTf/tree/dev/spectf_cloud)
+
+## Envrionment Variables
+This section is to provide a list of all of the envrionment variables related to this package and how they impact the functional behavior.
+
+### SpecTf
+
+### SpecTf Cloud
+`*` -> replace with the uppercase name of the parameter and any dashes `-` to be underscores `_`. (i.e. `--arch-proj-dim` -> `SPECTF_TRAIN_ARCH_PROJ_DIM`)
+| Evr Var Name | Description |
+|------|-------------|
+| **SPECTF_TRAIN_\*** | Set to override the default parameters values of the SpecTf model training function. (See `spectf-cloud train -h` for list of parameters and their defaults) |
+| **SPECTF_DEPLOY_\*** | Set to override the default parameters values of the SpecTf model deploy function. (See `spectf-cloud deploy -h` for list of parameters and their defaults) |
+| **SPECTF_EVAL_L2A_\*** | Set to override the default parameters values of the L2A evaluation function. (See `spectf-cloud cloud-eval l2a -h` for list of parameters and their defaults) |
+| **SPECTF_EVAL_SPECTF_\*** | Set to override the default parameters values of the SpecTf evaluation function. (See `spectf-cloud cloud-eval spectf -h` for list of parameters and their defaults) |
+| **RESNET_TRAIN_\*** | Set to override the default parameters values of the ResNet training function. (See `spectf-cloud train-comparison resnet -h` for list of parameters and their defaults) |
+| **XGBOOST_TRAIN_\*** | Set to override the default parameters values of the XGBoost training function. (See `spectf-cloud train-comparison xgboost -h` for list of parameters and their defaults) |
+

@@ -36,6 +36,10 @@ def l1b_to_toa_arr(rdnfp: str, obsfp: str, irrfp: str):
     banddef = [name_to_nm(name) for name in rad_header.metadata['wavelength']]
     banddef = np.array(banddef, dtype=float)
 
+    # Handle NODATA values
+    nodata_value = -9999.0
+    rad[rad == nodata_value] = np.nan
+
     # To-sun zenith (0 to 90 degrees from zenith)
     obs = envi.open(obsfp).open_memmap(interleave='bip')
     zen = obs[:,:,4]

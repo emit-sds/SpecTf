@@ -23,11 +23,6 @@ install()
     required=True,
 )
 @click.option(
-    "--dataset",
-    type=click.Path(exists=True, dir_okay=False),
-    required=True,
-)
-@click.option(
     "--batch-size",
     default=2**12,
     type=int,
@@ -43,14 +38,11 @@ install()
     default=get_abs_fp("spectf_cloud_config.yml"),
 )
 def onnx(
-    dataset:str,
     output_filepath:str,
     batch_size:int,
     weights:str,
     arch_file:str,
     ):
-    with h5py.File(dataset, 'r') as f:
-        bands = f.attrs['bands']
 
     with open(arch_file, 'r', encoding='utf-8') as f:
         spec = yaml.safe_load(f)
@@ -58,7 +50,6 @@ def onnx(
         arch = spec['arch']
 
         model = SpecTfEncoderTensorRT(
-            banddef=bands,
             dim_proj=arch['dim_proj'],
             dim_ff=arch['dim_ff'],
             agg=arch['agg'],

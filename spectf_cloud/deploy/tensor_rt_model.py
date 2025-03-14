@@ -6,7 +6,6 @@ import tensorrt as trt
 class SpecTfEncoderTensorRT(nn.Module):
     """This model just takes out the band concatenation step for the TensorRT runtime network"""
     def __init__(self,
-                 banddef: torch.Tensor,
                  dim_output: int = 2,
                  num_heads: int = 8,
                  dim_proj: int = 64,
@@ -27,21 +26,11 @@ class SpecTfEncoderTensorRT(nn.Module):
         ])
 
         # Head
-        self.agg = agg
-        if agg == 'flat':
-            self.head = nn.Linear(banddef.shape[0] * dim_proj, dim_output)
-        else:
-            self.head = nn.Linear(dim_proj, dim_output)
-
+        self.head = nn.Linear(dim_proj, dim_output)
         if agg == 'mean':
             self.aggregate = lambda x: torch.mean(x, dim=1)
-            self.head = nn.Linear(dim_proj, dim_output)
         elif agg == 'max':
             self.aggregate = lambda x: torch.max(x, dim=1)[0]
-            self.head = nn.Linear(dim_proj, dim_output)
-        elif agg == 'flat':
-            self.aggregate = lambda x: torch.flatten(x, start_dim=1)
-            self.head = nn.Linear(banddef.shape[0] * dim_proj, dim_output)
         else:
             raise ValueError(f'Aggregation method {agg} is not implemented.')
 

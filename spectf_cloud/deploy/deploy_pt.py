@@ -4,6 +4,8 @@ Copyright 2025 California Institute of Technology
 Apache License, Version 2.0
 
 Author: Jake Lee, jake.h.lee@jpl.nasa.gov
+
+This version of the dployment script quantizes the model, and runs it either with PyTorch JiT or Nvidia TensorRT
 """
 
 import logging
@@ -22,6 +24,7 @@ from spectf.model import SpecTfEncoder
 from spectf.dataset import RasterDatasetTOA
 from spectf_cloud.cli import spectf_cloud, MAIN_CALL_ERR_MSG
 
+PRECISION = torch.bfloat16
 ENV_VAR_PREFIX = 'SPECTF_DEPLOY_'
 
 numpy_to_gdal = {
@@ -99,7 +102,7 @@ logging.basicConfig(
     default="spectf_cloud_config.yml",
     type=click.Path(exists=True, dir_okay=False),
     show_default=True,
-    help="Filepath to model architecture YAML specification. This file also needs to contain the bands to remove",
+    help="Filepath to model architecture YAML specification.",
     envvar=f"{ENV_VAR_PREFIX}ARCH_SPEC",
 )
 @click.option(
@@ -120,9 +123,9 @@ logging.basicConfig(
 )
 @spectf_cloud.command(
     add_help_option=True,
-    help="Produce a SpecTf transformer-generated cloud mask."
+    help="Produce a SpecTf transformer-generated cloud mask using PyTorch runtime."
 )
-def deploy(
+def deploy_pt(
     rdnfp,
     obsfp,
     outfp,
@@ -132,7 +135,7 @@ def deploy(
     irradiance,
     arch_spec,
     device,
-    threshold
+    threshold,
 ):
     """Applies the SpecTf cloud screening model to an EMIT scene."""
 
@@ -140,9 +143,8 @@ def deploy(
     with open(arch_spec, 'r', encoding='utf-8') as f:
         spec = yaml.safe_load(f)
 
-    arch = spec['architecture']
+    arch = spec['arch']
     inference = spec['inference']
-    drop_bands = spec['spectra']['drop_band_ranges']
 
     # Setup PyTorch device
     if torch.cuda.is_available() and device != -1:
@@ -161,43 +163,44 @@ def deploy(
                                irradiance, 
                                transform=None, 
                                keep_bands=keep_bands, 
-                               rm_bands=drop_bands)
+                               dtype=PRECISION, 
+                               device=device_)
     dataloader = DataLoader(dataset,
                             batch_size=inference['batch'],
                             shuffle=False,
                             num_workers=inference['workers'])
 
     # Define and initialize the model
-    banddef = torch.tensor(dataset.banddef, dtype=torch.float, device=device_)
+    banddef = torch.tensor(dataset.banddef, dtype=PRECISION, device=device_)
     model = SpecTfEncoder(banddef=banddef,
                           dim_output=2,
-                          num_heads=arch['num_heads'],
+                          num_heads=arch['n_heads'],
                           dim_proj=arch['dim_proj'],
                           dim_ff=arch['dim_ff'],
                           dropout=0,
                           agg=arch['agg'],
                           use_residual=False,
-                          num_layers=1).to(device_, dtype=torch.float)
+                          num_layers=1).to(device_, dtype=PRECISION)
     state_dict = torch.load(weights, map_location=device_)
     model.load_state_dict(state_dict)
     model.eval()
 
+    # Optimize for jit
+    torch.jit.optimize_for_inference(torch.jit.script(model))
+
     # Inference
 
     logging.info("Starting inference.")
-    if proba:
-        cloud_mask = np.zeros((dataset.shape[0]*dataset.shape[1],)).astype(np.float32)
-    else:
-        cloud_mask = np.zeros((dataset.shape[0]*dataset.shape[1],)).astype(np.uint8)
+    cloud_mask_dtype = np.float32 if proba else np.uint8
+    cloud_mask = np.zeros((dataset.shape[0]*dataset.shape[1],), dtype=cloud_mask_dtype)
     total_len = len(dataloader)
     with torch.inference_mode():
         curr = 0
         start = time.time()
         for i, batch in enumerate(dataloader):
-            batch = batch.to(device_, dtype=torch.float)
             pred = model(batch)
             proba_ = nn.functional.softmax(pred, dim=1)
-            proba_ = proba_.cpu().detach().numpy()[:,1]
+            proba_ = proba_.to(dtype=torch.float32).cpu().detach().numpy()[:,1]
 
             nxt = curr+batch.size()[0]
             if proba:

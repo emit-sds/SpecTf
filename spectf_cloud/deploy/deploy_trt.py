@@ -20,9 +20,14 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 
-from spectf.model import SpecTfEncoder
+from spectf.model import BandConcat
 from spectf.dataset import RasterDatasetTOA
 from spectf_cloud.cli import spectf_cloud, MAIN_CALL_ERR_MSG
+from tensor_rt_model import load_model_network_engine
+
+import tensorrt as trt
+import pycuda.driver as cuda
+import pycuda.autoinit
 
 PRECISION = torch.bfloat16
 ENV_VAR_PREFIX = 'SPECTF_DEPLOY_'
@@ -82,12 +87,12 @@ logging.basicConfig(
     envvar=f"{ENV_VAR_PREFIX}PROBA",
 )
 @click.option(
-    "--weights",
-    default="weights.pt",
+    "--engine",
+    default="deploy/model.engine",
     type=click.Path(exists=True, dir_okay=False),
     show_default=True,
-    help="Filepath to trained model weights.",
-    envvar=f"{ENV_VAR_PREFIX}WEIGHTS",
+    help="Filepath to TensoRT model engine.",
+    envvar=f"{ENV_VAR_PREFIX}ENGINE",
 )
 @click.option(
     "--irradiance",
@@ -99,19 +104,11 @@ logging.basicConfig(
 )
 @click.option(
     "--arch-spec",
-    default="arch.yml",
+    default="spectf_cloud_config.yml",
     type=click.Path(exists=True, dir_okay=False),
     show_default=True,
     help="Filepath to model architecture YAML specification.",
     envvar=f"{ENV_VAR_PREFIX}ARCH_SPEC",
-)
-@click.option(
-    "--device",
-    default=-1,
-    type=int,
-    show_default=True,
-    help="Device specification for PyTorch (-1 for CPU, 0+ for GPU, MPS if available).",
-    envvar=f"{ENV_VAR_PREFIX}DEVICE",
 )
 @click.option(
     "--threshold",
@@ -123,39 +120,27 @@ logging.basicConfig(
 )
 @spectf_cloud.command(
     add_help_option=True,
-    help="Produce a SpecTf transformer-generated cloud mask."
+    help="Produce a SpecTf transformer-generated cloud mask using the TensorRT engine."
 )
-def deploy(
+def deploy_trt(
     rdnfp,
     obsfp,
     outfp,
     keep_bands,
     proba,
-    weights,
+    engine,
     irradiance,
     arch_spec,
-    device,
-    threshold
+    threshold,
 ):
     """Applies the SpecTf cloud screening model to an EMIT scene."""
 
     # Open model architecture specification from YAML file
     with open(arch_spec, 'r', encoding='utf-8') as f:
         spec = yaml.safe_load(f)
-
-    arch = spec['arch']
     inference = spec['inference']
-
-    # Setup PyTorch device
-    if torch.cuda.is_available() and device != -1:
-        device_ = torch.device(f"cuda:{device}")
-        logging.info("Device is cuda:%s", device)
-    elif torch.backends.mps.is_available() and torch.backends.mps.is_built():
-        device_ = torch.device("mps") # Apple silicon
-        logging.info("Device is Apple MPS acceleration")
-    else:
-        device_ = torch.device("cpu")
-        logging.info("Device is CPU")
+    
+    device_ = torch.device("cuda")
 
     # Initialize dataset and dataloader
     dataset = RasterDatasetTOA(rdnfp, 
@@ -165,31 +150,34 @@ def deploy(
                                keep_bands=keep_bands, 
                                dtype=PRECISION, 
                                device=device_)
+    bc = BandConcat(dataset.banddef)
+    dataset.toa_arr = bc(dataset.toa_arr)
     dataloader = DataLoader(dataset,
                             batch_size=inference['batch'],
                             shuffle=False,
                             num_workers=inference['workers'])
 
     # Define and initialize the model
-    banddef = torch.tensor(dataset.banddef, dtype=PRECISION, device=device_)
-    model = SpecTfEncoder(banddef=banddef,
-                          dim_output=2,
-                          num_heads=arch['n_heads'],
-                          dim_proj=arch['dim_proj'],
-                          dim_ff=arch['dim_ff'],
-                          dropout=0,
-                          agg=arch['agg'],
-                          use_residual=False,
-                          num_layers=1).to(device_, dtype=PRECISION)
-    state_dict = torch.load(weights, map_location=device_)
-    model.load_state_dict(state_dict)
-    model.eval()
+    engine = load_model_network_engine(engine)
+    context = engine.create_execution_context()
 
-    # Optimize for jit
-    torch.jit.optimize_for_inference(torch.jit.script(model))
+    ## Allocate buffers
+    input_name = None
+    for i in range(engine.num_io_tensors):
+        tensor_name = engine.get_tensor_name(i)
+        size = trt.volume(engine.get_tensor_shape(tensor_name))
+        
+        if engine.get_tensor_mode(tensor_name) == trt.TensorIOMode.INPUT:
+            input_name = tensor_name
+        else:
+            host_ouput_buffer = cuda.pagelocked_empty(size, dtype=np.float16)
+            device_output_buffer = cuda.mem_alloc(host_ouput_buffer.nbytes)
+
+            context.set_tensor_address(tensor_name, int(device_output_buffer))
+    stream = cuda.Stream()
 
     # Inference
-
+    
     logging.info("Starting inference.")
     cloud_mask_dtype = np.float32 if proba else np.uint8
     cloud_mask = np.zeros((dataset.shape[0]*dataset.shape[1],), dtype=cloud_mask_dtype)
@@ -198,9 +186,28 @@ def deploy(
         curr = 0
         start = time.time()
         for i, batch in enumerate(dataloader):
-            pred = model(batch)
-            proba_ = nn.functional.softmax(pred, dim=1)
-            proba_ = proba_.to(dtype=torch.float32).cpu().detach().numpy()[:,1]
+            # Create an input buffer
+            batch = batch.contiguous() # should be of shape: (bsz, n dims, 2 - for the spectra and index)
+            context.set_tensor_address(input_name, int(batch.data_ptr()))
+
+            # Execute inference
+            context.execute_async_v3(stream.handle)
+
+            out_gpu = torch.empty((batch.shape[0], 2), dtype=PRECISION, device=device_)
+            # Device->Device copy from device_output buffer into tensor
+            cuda.memcpy_dtod_async(
+                dest=out_gpu.data_ptr(),
+                src=device_output_buffer,
+                size=out_gpu.numel() * out_gpu.element_size(),
+                stream=stream
+            )
+            stream.synchronize()
+
+            # Perform softmax on the GPU
+            proba_gpu = torch.nn.functional.softmax(out_gpu.float(), dim=1)
+
+            # Bring the result back to CPU
+            proba_ = proba_gpu.to(dtype=torch.float32).cpu().detach().numpy()[:,1]
 
             nxt = curr+batch.size()[0]
             if proba:

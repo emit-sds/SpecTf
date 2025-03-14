@@ -5,7 +5,7 @@ Apache License, Version 2.0
 
 Author: Jake Lee, jake.h.lee@jpl.nasa.gov
 
-This version of the dployment script quantizes the model, and runs it either with PyTorch JiT or Nvidia TensorRT
+This version of the dployment script quantizes the model, and runs it either with PyTorch JiT
 """
 
 import logging

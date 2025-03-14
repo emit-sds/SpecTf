@@ -23,11 +23,12 @@ from torch.utils.data import DataLoader
 from spectf.model import BandConcat
 from spectf.dataset import RasterDatasetTOA
 from spectf_cloud.cli import spectf_cloud, MAIN_CALL_ERR_MSG
-from tensor_rt_model import load_model_network_engine
 
-import tensorrt as trt
-import pycuda.driver as cuda
-import pycuda.autoinit
+if torch.cuda.is_available():
+    from spectf_cloud.deploy.tensor_rt_model import load_model_network_engine
+    import tensorrt as trt
+    import pycuda.driver as cuda
+    import pycuda.autoinit
 
 PRECISION = torch.bfloat16
 ENV_VAR_PREFIX = 'SPECTF_DEPLOY_'

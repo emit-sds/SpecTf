@@ -1,8 +1,0 @@
-arch:
-  dim_proj: 64
-  n_heads: 8
-  dim_ff: 64
-  agg: max
-inference:    # This may have compute implications
-  batch: 1024
-  workers: 0

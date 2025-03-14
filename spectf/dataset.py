@@ -7,6 +7,7 @@ Author: Jake Lee, jake.h.lee@jpl.nasa.gov
 """
 
 from collections.abc import Callable
+from typing import List
 
 import numpy as np
 import torch
@@ -39,6 +40,7 @@ class RasterDatasetTOA(Dataset):
             rdnfp: str, 
             obsfp: str, 
             irrfp:str,
+            rm_bands:List[List[int]]=None,
             transform: Callable = None, 
             keep_bands: bool = False, 
             dtype: torch.dtype = torch.float,
@@ -55,14 +57,15 @@ class RasterDatasetTOA(Dataset):
         """
         super().__init__()
 
-        self.toa_arr, self.banddef, self.metadata = l1b_to_toa_arr(
-                                                        rdnfp, obsfp, irrfp)
+        self.toa_arr, self.banddef, self.metadata = l1b_to_toa_arr(rdnfp, obsfp, irrfp)
         self.shape = self.toa_arr.shape
         self.toa_arr = self.toa_arr.reshape((self.shape[0] * self.shape[1],
                                              self.shape[2]))
         if not keep_bands:
             self.toa_arr, self.banddef = drop_bands(self.toa_arr,
-                                                    self.banddef, nan=False)
+                                                    self.banddef, 
+                                                    rm_bands,
+                                                    nan=False)
         self.transform = transform
 
         self.toa_arr = torch.tensor(self.toa_arr, dtype=dtype)

@@ -135,6 +135,8 @@ def deploy_trt(
     threshold,
 ):
     """Applies the SpecTf cloud screening model to an EMIT scene."""
+    if not torch.cuda.is_available():
+        raise RuntimeError("Cannot run the TensorRT runt time engine without a CUDA supported GPU.")
 
     # Open model architecture specification from YAML file
     with open(arch_spec, 'r', encoding='utf-8') as f:

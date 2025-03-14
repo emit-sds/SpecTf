@@ -34,8 +34,16 @@ class RasterDatasetTOA(Dataset):
     files and generate the TOA reflectance data.
     """
 
-    def __init__(self, rdnfp: str, obsfp: str, irrfp:str,
-                 transform: Callable = None, keep_bands: bool = False):
+    def __init__(
+            self, 
+            rdnfp: str, 
+            obsfp: str, 
+            irrfp:str,
+            transform: Callable = None, 
+            keep_bands: bool = False, 
+            dtype: torch.dtype = torch.float,
+            device:torch.device = None,
+        ):
         """ Initialize the RasterDatasetTOA Dataset object.
         Args:
             rdnfp (str): File path to the radiance data (L1b product).
@@ -57,15 +65,20 @@ class RasterDatasetTOA(Dataset):
                                                     self.banddef, nan=False)
         self.transform = transform
 
+        self.toa_arr = torch.tensor(self.toa_arr, dtype=dtype)
+        self.toa_arr = torch.unsqueeze(self.toa_arr, -1)
+        if device is not None:
+            self.toa_arr = self.toa_arr.to(device)
+
     def __len__(self):
         return len(self.toa_arr)
 
     def __getitem__(self, idx):
-        out_spec = torch.tensor(self.toa_arr[idx], dtype=torch.float)
+        out_spec = self.toa_arr[idx]
         if self.transform is not None:
             out_spec = self.transform(out_spec)
 
-        return torch.unsqueeze(out_spec, -1)
+        return out_spec
 
 
 class SpectraDataset(Dataset):

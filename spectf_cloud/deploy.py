@@ -8,6 +8,7 @@ Author: Jake Lee, jake.h.lee@jpl.nasa.gov
 
 import logging
 import time
+from pathlib import Path
 
 import yaml
 import rich_click as click
@@ -20,9 +21,10 @@ from torch.utils.data import DataLoader
 
 from spectf.model import SpecTfEncoder
 from spectf.dataset import RasterDatasetTOA
-from spectf_cloud.cli import spectf_cloud, MAIN_CALL_ERR_MSG
+from spectf_cloud.cli import spectf_cloud, MAIN_CALL_ERR_MSG, DEFAULT_DIR
 
 ENV_VAR_PREFIX = 'SPECTF_DEPLOY_'
+
 
 numpy_to_gdal = {
     np.dtype(np.float64): 7,
@@ -80,7 +82,7 @@ logging.basicConfig(
 )
 @click.option(
     "--weights",
-    default="weights.pt",
+    default=DEFAULT_DIR/"weights.pt",
     type=click.Path(exists=True, dir_okay=False),
     show_default=True,
     help="Filepath to trained model weights.",
@@ -88,7 +90,7 @@ logging.basicConfig(
 )
 @click.option(
     "--irradiance",
-    default="irr.npy",
+    default=DEFAULT_DIR/"irr.npy",
     type=click.Path(exists=True, dir_okay=False),
     show_default=True,
     help="Filepath to irradiance numpy file.",
@@ -96,7 +98,7 @@ logging.basicConfig(
 )
 @click.option(
     "--arch-spec",
-    default="spectf_cloud_config.yml",
+    default=DEFAULT_DIR/"spectf_cloud_config.yml",
     type=click.Path(exists=True, dir_okay=False),
     show_default=True,
     help="Filepath to model architecture YAML specification. This file also needs to contain the bands to remove",

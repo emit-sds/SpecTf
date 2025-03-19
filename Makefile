@@ -32,7 +32,7 @@ help: ## Show this help.
 ## Building:
 build: ## Build project artifact
 	$(PYTHON_COMMAND) -m pip install --upgrade build
-	$(PYTHON_COMMAND) -m build
+	$(PYTHON_COMMAND) -m build --wheel --sdist .
 
 clean: ## Clean project
 	rm -rf dist

@@ -1,0 +1,3 @@
+recursive-include spectf *
+recursive-include spectf_cloud *
+recursive-include docs *

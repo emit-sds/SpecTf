@@ -22,7 +22,7 @@ from torch.utils.data import DataLoader
 
 from spectf.model import BandConcat
 from spectf.dataset import RasterDatasetTOA
-from spectf_cloud.cli import spectf_cloud, MAIN_CALL_ERR_MSG
+from spectf_cloud.cli import spectf_cloud, MAIN_CALL_ERR_MSG, DEFAULT_DIR
 
 if torch.cuda.is_available():
     from spectf_cloud.deploy.tensor_rt_model import load_model_network_engine
@@ -89,7 +89,7 @@ logging.basicConfig(
 )
 @click.option(
     "--engine",
-    default="deploy/model.engine",
+    default=DEFAULT_DIR/"deploy/model.engine",
     type=click.Path(exists=True, dir_okay=False),
     show_default=True,
     help="Filepath to TensoRT model engine.",
@@ -97,7 +97,7 @@ logging.basicConfig(
 )
 @click.option(
     "--irradiance",
-    default="irr.npy",
+    default=DEFAULT_DIR/"irr.npy",
     type=click.Path(exists=True, dir_okay=False),
     show_default=True,
     help="Filepath to irradiance numpy file.",
@@ -105,7 +105,7 @@ logging.basicConfig(
 )
 @click.option(
     "--arch-spec",
-    default="spectf_cloud_config.yml",
+    default=DEFAULT_DIR/"spectf_cloud_config.yml",
     type=click.Path(exists=True, dir_okay=False),
     show_default=True,
     help="Filepath to model architecture YAML specification.",
@@ -215,14 +215,7 @@ def deploy_trt(
             proba_ = proba_gpu.to(dtype=torch.float32).cpu().detach().numpy()[:,1]
 
             nxt = curr+batch.size()[0]
-            if proba:
-                cloud_mask[curr:nxt] = proba_
-            else:
-                cloud_mask[curr:nxt] = (proba_ >= threshold).astype(np.uint8)
-
-            # Handle NODATA pixels by setting cloud probability to 0 if any band is below -1
-            min_values, _ = torch.min(batch[:,:,0], dim=1)
-            cloud_mask[curr:nxt] = np.where(min_values.to(dtype=torch.float32).cpu().detach().numpy() < -1, 0, cloud_mask[curr:nxt])
+            cloud_mask[curr:nxt] = proba_
 
             curr = nxt
             if (i+1) % 100 == 0:
@@ -232,12 +225,27 @@ def deploy_trt(
 
     logging.info("Inference complete.")
 
+    # Account for NODATA values and threshold
+    if proba:
+        cloud_mask[np.isnan(cloud_mask)] = -9999
+    else:
+        cloud_mask[cloud_mask < threshold] = 0
+        cloud_mask[cloud_mask > 0] = 1
+        cloud_mask[np.isnan(cloud_mask)] = 255
+        cloud_mask = cloud_mask.astype(np.uint8)
+
     # Reshape into input shape
     cloud_mask = cloud_mask.reshape((dataset.shape[0], dataset.shape[1], 1))
 
     driver = gdal.GetDriverByName('MEM')
     ds = driver.Create('', cloud_mask.shape[1], cloud_mask.shape[0], cloud_mask.shape[2], numpy_to_gdal[cloud_mask.dtype])
     ds.GetRasterBand(1).WriteArray(cloud_mask[:,:,0])
+
+    # Set NODATA value
+    if proba:
+        ds.GetRasterBand(1).SetNoDataValue(-9999)
+    else:
+        ds.GetRasterBand(1).SetNoDataValue(255)
 
     tiff_driver = gdal.GetDriverByName('GTiff')
     _ = tiff_driver.CreateCopy(outfp, ds, options=['COMPRESS=LZW', 'COPY_SRC_OVERVIEWS=YES', 'TILED=YES', 'BLOCKXSIZE=256', 'BLOCKYSIZE=256'])

@@ -28,6 +28,12 @@ dependencies = [
   "GDAL ~= 3.9.0",
 ]
 
+[project.optional-dependencies]
+deploy-runtime = [
+  "tensorrt = 10.9.0.34",
+  "pycuda >= 2025.1",
+]
+
 scripts = { spectf-cloud = "spectf_cloud.cli:main" }
 
 [build-system]

@@ -233,4 +233,4 @@ def deploy_pt(
     logging.info("Cloud mask saved to %s", outfp)
 
 if __name__ == "__main__":
-    print(MAIN_CALL_ERR_MSG % "deploy")
+    print(MAIN_CALL_ERR_MSG % "deploy-pt")

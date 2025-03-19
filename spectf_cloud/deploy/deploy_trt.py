@@ -206,7 +206,7 @@ def deploy_trt(
             )
             stream.synchronize()
 
-            # Perform softmax on the GPU
+            # Perform softmax on the GPU - putting this here versus fusing with the trt network had no benefits
             proba_gpu = torch.nn.functional.softmax(out_gpu.float(), dim=1)
 
             # Bring the result back to CPU
@@ -243,4 +243,4 @@ def deploy_trt(
     logging.info("Cloud mask saved to %s", outfp)
 
 if __name__ == "__main__":
-    print(MAIN_CALL_ERR_MSG % "deploy")
+    print(MAIN_CALL_ERR_MSG % "deploy-trt")

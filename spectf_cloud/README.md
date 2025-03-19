@@ -46,7 +46,7 @@ Here's an overview of the key files and directories in this repository:
 | File | Description |
 |------|------------|
 | **`dataset.py`** | PyTorch dataloader for ML-ready datasets and EMIT scene rasters. |
-| **`deploy.py`** | Primary script to produce EMIT Cloud Masks. See [Usage](#Usage) for details. |
+| **`deploy/deploy_pt.py`** | Primary script to produce EMIT Cloud Masks. See [Usage](#Usage) for details. |
 | **`irr.npy`** | Solar irradiance data for Top-of-Atmosphere calculations. |
 | **`model.py`** | SpecTf model architecture definition in PyTorch. |
 | **`toa.py`** | Helper script for calculating the Top-of-Atmosphere Reflectance in-memory. |
@@ -57,7 +57,7 @@ Here's an overview of the key files and directories in this repository:
 ---
 
 ### **Notes**
-- The `deploy.py` and `train.py` scripts are the **main entry points** for model inference and training.
+- The `deploy/deploy_pt.py` and `train.py` scripts are the **main entry points** for model inference and training.
 - `datasets/` and `evaluation/` contain **important assets** for benchmarking the model.
 
 ## 💽 Dataset
@@ -92,7 +92,8 @@ $ spectf-cloud -h
 ╰───────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Commands ────────────────────────────────────────────────────────────────────────────────────────────╮
 │ cloud-eval             Evaluation commands for SpecTf and L2A Baseline.                               │
-│ deploy                 Produce a SpecTf transformer-generated cloud mask.                             │
+│ deploy-pt              Produce a SpecTf transformer-generated cloud mask using PyTorch runtime.       │
+│ deploy-trt             Produce a SpecTf transformer-generated cloud mask using the TensorRT engine.   │
 │ train                  Train the SpecTf Hyperspectral Transformer Model.                              │
 │ train-comparison       Training commands for the ResNet and XGBoost comparison models.                │
 │ tui                    Open Textual TUI.                                                              │
@@ -116,9 +117,9 @@ $ which spectf-cloud
 **2. Use the CLI to Run SpecTf Cloud**
 
 ```
-$ spectf-cloud deploy -h
+$ spectf-cloud deploy-pt -h
 
- Usage: spectf-cloud deploy [OPTIONS] OUTFP OBSFP RDNFP
+ Usage: spectf-cloud deploy-pt [OPTIONS] OUTFP OBSFP RDNFP
 
  Produce a SpecTf transformer-generated cloud mask.
 
@@ -138,8 +139,10 @@ $ spectf-cloud deploy -h
 
 Example:
 ```
-$ spectf-cloud deploy /path/to/outfile /path/to/obsfile /path/to/radiance/file
+$ spectf-cloud deploy-pt /path/to/outfile /path/to/obsfile /path/to/radiance/file
 ```
+
+> **NOTE:** The TensorRT reuntime deployment is ~25% faster than the PyTorch runtime deployment, but requires an additional set of dependancies. To use `spectf-cloud deploy-trt`, please download `pip3 install spectf[deploy-runtime]`
 
 ### 👨‍🔬 Reproduce/Retrain the SpecTf Cloud model 🚂
 

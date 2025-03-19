@@ -154,7 +154,8 @@ def deploy_trt(
                                keep_bands=keep_bands, 
                                dtype=PRECISION, 
                                device=device_)
-    bc = BandConcat(dataset.banddef)
+    banddef = torch.tensor(dataset.banddef, dtype=PRECISION).to(device_)
+    bc = BandConcat(banddef)
     dataset.toa_arr = bc(dataset.toa_arr)
     dataloader = DataLoader(dataset,
                             batch_size=inference['batch'],

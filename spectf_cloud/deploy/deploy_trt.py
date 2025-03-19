@@ -184,8 +184,7 @@ def deploy_trt(
     # Inference
     
     logging.info("Starting inference.")
-    cloud_mask_dtype = np.float32 if proba else np.uint8
-    cloud_mask = np.zeros((dataset.shape[0]*dataset.shape[1],), dtype=cloud_mask_dtype)
+    cloud_mask = np.zeros((dataset.shape[0]*dataset.shape[1],)).astype(np.float32)
     total_len = len(dataloader)
     with torch.inference_mode():
         curr = 0

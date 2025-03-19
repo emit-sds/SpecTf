@@ -143,7 +143,7 @@ def deploy_pt(
     with open(arch_spec, 'r', encoding='utf-8') as f:
         spec = yaml.safe_load(f)
 
-    arch = spec['arch']
+    arch = spec['architecture']
     inference = spec['inference']
 
     # Setup PyTorch device
@@ -161,6 +161,7 @@ def deploy_pt(
     dataset = RasterDatasetTOA(rdnfp, 
                                obsfp, 
                                irradiance, 
+                               rm_bands=spec['spectra']['drop_band_ranges'],
                                transform=None, 
                                keep_bands=keep_bands, 
                                dtype=PRECISION, 
@@ -174,10 +175,9 @@ def deploy_pt(
     banddef = torch.tensor(dataset.banddef, dtype=PRECISION, device=device_)
     model = SpecTfEncoder(banddef=banddef,
                           dim_output=2,
-                          num_heads=arch['n_heads'],
+                          num_heads=arch['num_heads'],
                           dim_proj=arch['dim_proj'],
                           dim_ff=arch['dim_ff'],
-                          dropout=0,
                           agg=arch['agg'],
                           use_residual=False,
                           num_layers=1).to(device_, dtype=PRECISION)
@@ -210,7 +210,7 @@ def deploy_pt(
 
             # Handle NODATA pixels by setting cloud probability to 0 if any band is below -1
             min_values, _ = torch.min(batch[:,:,0], dim=1)
-            cloud_mask[curr:nxt] = np.where(min_values.cpu().detach().numpy() < -1, 0, cloud_mask[curr:nxt])
+            cloud_mask[curr:nxt] = np.where(min_values.to(dtype=torch.float32).cpu().detach().numpy() < -1, 0, cloud_mask[curr:nxt])
 
             curr = nxt
             if (i+1) % 100 == 0:

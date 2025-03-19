@@ -149,6 +149,7 @@ def deploy_trt(
     dataset = RasterDatasetTOA(rdnfp, 
                                obsfp, 
                                irradiance, 
+                               rm_bands=spec['spectra']['drop_band_ranges'],
                                transform=None, 
                                keep_bands=keep_bands, 
                                dtype=PRECISION, 
@@ -220,7 +221,7 @@ def deploy_trt(
 
             # Handle NODATA pixels by setting cloud probability to 0 if any band is below -1
             min_values, _ = torch.min(batch[:,:,0], dim=1)
-            cloud_mask[curr:nxt] = np.where(min_values.cpu().detach().numpy() < -1, 0, cloud_mask[curr:nxt])
+            cloud_mask[curr:nxt] = np.where(min_values.to(dtype=torch.float32).cpu().detach().numpy() < -1, 0, cloud_mask[curr:nxt])
 
             curr = nxt
             if (i+1) % 100 == 0:

@@ -104,7 +104,7 @@ logging.basicConfig(
     default=DEFAULT_DIR/"spectf_cloud_config.yml",
     type=click.Path(exists=True, dir_okay=False),
     show_default=True,
-    help="Filepath to model architecture YAML specification.",
+    help="Filepath to model architecture YAML specification. This file also needs to contain the bands to remove",
     envvar=f"{ENV_VAR_PREFIX}ARCH_SPEC",
 )
 @click.option(

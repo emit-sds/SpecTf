@@ -21,11 +21,10 @@ from torch.utils.data import DataLoader
 
 from spectf.model import SpecTfEncoder
 from spectf.dataset import RasterDatasetTOA
-from spectf_cloud.cli import spectf_cloud, MAIN_CALL_ERR_MSG
+from spectf_cloud.cli import spectf_cloud, MAIN_CALL_ERR_MSG, DEFAULT_DIR
 
 ENV_VAR_PREFIX = 'SPECTF_DEPLOY_'
 
-DEFAULT_DIR = Path(__file__).resolve().parent
 
 numpy_to_gdal = {
     np.dtype(np.float64): 7,

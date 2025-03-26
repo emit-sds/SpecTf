@@ -43,3 +43,4 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 packages = ["spectf", "spectf_cloud"]
+include-package-data = true

@@ -26,7 +26,7 @@ follow the below instructions:
 
 1. [Install GDAL](https://gdal.org/en/stable/download.html) 
     - If you have trouble installing, try `conda install -c conda-forge gdal`
-2. `make dev-install` from the repository root.
+2. `make dev-install` from the repository root. (Running `make dev-install-tensorrt` will install the optional packages for the TensorRT runtime with `spectf-cloud deploy-trt` command)
 3. Future versions will be deployed on PyPI.
 
 

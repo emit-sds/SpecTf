@@ -43,5 +43,8 @@ dev-install: ## Locally install project in development mode
 	$(PYTHON_COMMAND) -m pip uninstall $(NAME)
 	$(PYTHON_COMMAND) -m pip install -e .
 
+dev-install-tensorrt: ## Locally install the optional TensorRT packages
+	$(PYTHON_COMMAND) -m install -e .[deploy-runtime]
+
 test: ## Quickly run unit tests
 	$(PYTHON_COMMAND) -m unittest discover -s tests

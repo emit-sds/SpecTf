@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 from spectf.model import SpectralEmbed, EncoderLayer
+from spectf_cloud.deploy import SUPPORTS_TRT
 
 class SpecTfEncoderTensorRT(nn.Module):
     """This model just takes out the band concatenation step for the TensorRT runtime network"""
@@ -63,7 +64,7 @@ class SpecTfEncoderTensorRT(nn.Module):
                 param = param.data
             own_state[name].copy_(param)
 
-if torch.cuda.is_available():
+if SUPPORTS_TRT:
     import tensorrt as trt
 
     def load_model_network_engine(enine_fp: str) -> trt.ICudaEngine:

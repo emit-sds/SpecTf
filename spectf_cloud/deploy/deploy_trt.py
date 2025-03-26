@@ -17,14 +17,14 @@ import numpy as np
 from osgeo import gdal
 
 import torch
-from torch import nn
 from torch.utils.data import DataLoader
 
 from spectf.model import BandConcat
 from spectf.dataset import RasterDatasetTOA
 from spectf_cloud.cli import spectf_cloud, MAIN_CALL_ERR_MSG, DEFAULT_DIR
+from spectf_cloud.deploy import SUPPORTS_TRT
 
-if torch.cuda.is_available():
+if SUPPORTS_TRT:
     from spectf_cloud.deploy.tensor_rt_model import load_model_network_engine
     import tensorrt as trt
     import pycuda.driver as cuda

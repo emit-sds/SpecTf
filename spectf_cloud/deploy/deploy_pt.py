@@ -10,7 +10,6 @@ This version of the dployment script quantizes the model, and runs it with PyTor
 
 import logging
 import time
-from pathlib import Path
 
 import yaml
 import rich_click as click

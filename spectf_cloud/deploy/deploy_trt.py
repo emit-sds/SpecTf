@@ -15,6 +15,7 @@ import yaml
 import rich_click as click
 import numpy as np
 from osgeo import gdal
+gdal.UseExceptions()
 
 import torch
 from torch.utils.data import DataLoader
@@ -22,9 +23,9 @@ from torch.utils.data import DataLoader
 from spectf.model import BandConcat
 from spectf.dataset import RasterDatasetTOA
 from spectf_cloud.cli import spectf_cloud, MAIN_CALL_ERR_MSG, DEFAULT_DIR
-from spectf_cloud.deploy import SUPPORTS_TRT
+from spectf_cloud.deploy import __SUPPORTS_TRT__
 
-if SUPPORTS_TRT:
+if __SUPPORTS_TRT__:
     from spectf_cloud.deploy.tensor_rt_model import load_model_network_engine
     import tensorrt as trt
     import pycuda.driver as cuda
@@ -168,12 +169,14 @@ def deploy_trt(
 
     ## Allocate buffers
     input_name = None
+    expected_bsz = -1
     for i in range(engine.num_io_tensors):
         tensor_name = engine.get_tensor_name(i)
         size = trt.volume(engine.get_tensor_shape(tensor_name))
         
         if engine.get_tensor_mode(tensor_name) == trt.TensorIOMode.INPUT:
             input_name = tensor_name
+            expected_bsz = engine.get_tensor_shape(tensor_name)[0]
         else:
             host_ouput_buffer = cuda.pagelocked_empty(size, dtype=np.float16)
             device_output_buffer = cuda.mem_alloc(host_ouput_buffer.nbytes)
@@ -190,6 +193,14 @@ def deploy_trt(
         curr = 0
         start = time.time()
         for i, batch in enumerate(dataloader):
+            # If the batch size is smaller than needed (happens for last batch), we neeed to pad it
+            original_pad_shape = -1
+            if inference['batch'] != batch.size(0):
+                original_pad_shape = batch.size(0)
+                batch = pad_batch(batch, inference['batch'])
+            if expected_bsz != -1:
+                assert batch.size(0) == expected_bsz, f"Got unsupported batch size. Got: {batch.shape(0)} | Need: {expected_bsz}"
+
             # Create an input buffer
             batch = batch.contiguous() # should be of shape: (bsz, n dims, 2 - for the spectra and index)
             context.set_tensor_address(input_name, int(batch.data_ptr()))
@@ -213,7 +224,12 @@ def deploy_trt(
             # Bring the result back to CPU
             proba_ = proba_gpu.to(dtype=torch.float32).cpu().detach().numpy()[:,1]
 
-            nxt = curr+batch.size()[0]
+            if original_pad_shape != -1:
+                nxt = curr+original_pad_shape
+                proba_ = proba_[:original_pad_shape]
+            else:
+                nxt = curr+batch.size(0)
+            
             cloud_mask[curr:nxt] = proba_
 
             curr = nxt
@@ -250,6 +266,19 @@ def deploy_trt(
     _ = tiff_driver.CreateCopy(outfp, ds, options=['COMPRESS=LZW', 'COPY_SRC_OVERVIEWS=YES', 'TILED=YES', 'BLOCKXSIZE=256', 'BLOCKYSIZE=256'])
 
     logging.info("Cloud mask saved to %s", outfp)
+
+def pad_batch(b: torch.tensor, target_bsz:int):    
+    # Pad w/ zeros
+    padded_shape = (target_bsz,) + b.shape[1:]
+    padded_batch = torch.zeros(
+        padded_shape,
+        dtype=b.dtype,
+        device=b.device
+    )
+
+    padded_batch[:b.size(0)] = b
+    return padded_batch
+
 
 if __name__ == "__main__":
     print(MAIN_CALL_ERR_MSG % "deploy-trt")

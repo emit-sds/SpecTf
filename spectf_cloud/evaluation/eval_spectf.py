@@ -135,7 +135,7 @@ def spectf(dataset, weights, test_csv, batch, gpu, arch_ff, arch_heads, arch_pro
     n_cls = 2
     banddef = torch.tensor(bands, dtype=torch.float32).to(device)
     model = SpecTfEncoder(banddef,
-                          num_classes=n_cls,
+                          dim_output=n_cls,
                           num_heads=arch_heads,
                           dim_proj=arch_proj_dim,
                           dim_ff=arch_ff,

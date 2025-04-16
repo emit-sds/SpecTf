@@ -58,5 +58,9 @@ def l1b_to_toa_arr(rdnfp: str, obsfp: str, irrfp: str):
 
     # Top of Atmosphere Reflectance
     toa_refl = (np.pi / np.cos(zen[:, :, np.newaxis])) * (rad / irr[np.newaxis, np.newaxis, :])
+    
+    # Handle NODATA values
+    nodata_value = -9999.0
+    toa_refl[rad == nodata_value] = np.nan
 
     return toa_refl, banddef, rad_header.metadata

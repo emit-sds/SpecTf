@@ -7,6 +7,7 @@ Subdirectories of this repository contain research code for specific publication
 ## Included Packages
 
 Installation of these packages require an [existing installation of GDAL](https://gdal.org/en/stable/download.html).
+- libgdal needs to be version 3.9.3: `conda install conda-forge::libgdal==3.9.3`
 
 ### [SpecTf Cloud Masking Model](https://github.com/emit-sds/SpecTf/tree/main/spectf_cloud)
 <p align="center">

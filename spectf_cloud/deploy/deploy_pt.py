@@ -187,7 +187,7 @@ def deploy_pt(
     model.eval()
 
     # Optimize for jit
-    torch.jit.optimize_for_inference(torch.jit.script(model))
+    model = torch.jit.optimize_for_inference(torch.jit.script(model))
 
     # Inference
 

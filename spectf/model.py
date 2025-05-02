@@ -433,3 +433,115 @@ class SpecTfEncoder(nn.Module):
                 nn.init.xavier_uniform_(module.weight)
                 if module.bias is not None:
                     nn.init.constant_(module.bias, 0)
+
+
+class BandConcatTemporal(nn.Module):
+    """Module to concatenate band wavelength information to spectra."""
+
+    def __init__(self, banddef: torch.Tensor, mean: int = 1440, std: int = 600):
+        """Initialize BandConcat module."""
+        super().__init__()
+        self.mean = mean
+        self.std = std
+
+        # Reshape from (s,) to (1, 1, s, 1)
+        self.banddef = banddef.unsqueeze(-1).unsqueeze(0).unsqueeze(0)
+        #self.banddef = banddef.unsqueeze(-1).unsqueeze(0)
+
+        # Normalize band wavelengths
+        self.banddef = (self.banddef - self.mean) / self.std
+
+    def forward(self, spectra: torch.Tensor):
+        """BandConcat forward pass.
+
+        Args:
+            spectra (torch.Tensor): tensor of shape (b, t, s, 1)
+
+        Returns:
+            torch.Tensor: concatenated tensor of shape (b, t, s, 2)
+        """
+
+        encoded = torch.cat((spectra, self.banddef.expand_as(spectra)), dim=-1)
+        return encoded
+
+
+class TemporalTokenSpecTfEncoder(nn.Module):
+    def __init__(self,
+                 banddef: torch.Tensor,
+                 dim_output: int = 2,
+                 num_heads: int = 8,
+                 dim_proj: int = 64,
+                 dim_ff: int = 64,
+                 dropout: float = 0.1,
+                 use_residual: bool = True,
+                 num_layers: int = 2,
+                 max_time: int = 2):
+        """Initialize TemporalTokenSpecTfEncoder module.
+        """
+        super().__init__()
+
+        # Embedding
+        self.band_concat = BandConcatTemporal(banddef)
+        self.spectral_embed = SpectralEmbed(n_filters=dim_proj)
+        # (b, 3, s, dim_proj)
+        self.temporal_encode = nn.Parameter(torch.randn(size=(1, max_time+1, 1, dim_proj)))
+
+        # Token
+        self.rgr_token = nn.Parameter(torch.randn(size=(dim_proj,)))
+        nn.init.normal_(self.rgr_token, std=0.02)
+
+        # Attention
+        self.layers = nn.ModuleList([
+            EncoderLayer(dim_proj, num_heads, dim_ff, dropout, use_residual)
+            for _ in range(num_layers)
+        ])
+
+        # Head
+        self.head = nn.Linear(dim_proj, dim_output)
+
+        self.initialize_weights()
+
+    def forward(self, x: torch.Tensor):
+        """SpecTfEncoder forward pass.
+        
+        Args:
+            x (torch.Tensor): Input tensor of shape (b, t, s)
+        
+        Returns:
+            torch.Tensor: Output tensor of shape (b, num_classes)
+        """
+        b = x.shape[0]
+        t = x.shape[1]
+        s = x.shape[2]
+
+        # (b, t, s)
+        x = x.unsqueeze(-1)
+        # (b, t, s, 1)
+        x = self.band_concat(x)
+        # (b, t, s, 2)
+        x = self.spectral_embed(x)
+        # (b, t, s, dim_proj)
+        x = x + self.temporal_encode[:,1:t,:,:].expand_as(x)
+        # (b, t, s, dim_proj)
+        x = x.view(b, t*s, -1)
+        # (b, t*s, dim_proj)
+        x = torch.cat((self.rgr_token.expand(b, 1, -1), x), dim=1)
+        # (b, t*s+1, dim_proj)
+        x[:, [0], :] = x[:, [0], :] + self.temporal_encode[:,0,:,:].expand(b, 1, -1)
+        # (b, t*s+1, dim_proj)
+
+        for layer in self.layers:
+            x = layer(x)
+
+        x = x[:, 0, :]
+        x = self.head(x)
+
+        return x
+
+    def initialize_weights(self):
+        """Initialize weights for the model."""
+        for module in self.modules():
+            if isinstance(module, (nn.Linear, nn.Conv1d)):
+                nn.init.xavier_uniform_(module.weight)
+                if module.bias is not None:
+                    nn.init.constant_(module.bias, 0)

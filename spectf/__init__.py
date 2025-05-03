@@ -3,6 +3,7 @@ __all__ = [
     "model", 
     "toa", 
     "utils",
+    "uq"
 ]
 __author__ = "Jet Propulsion Laboratory, California Institute of Technology"
 

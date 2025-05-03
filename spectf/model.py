@@ -9,7 +9,7 @@ Author: Jake Lee, jake.h.lee@jpl.nasa.gov
 import torch
 from torch import nn
 
-from uq import EvidentialRegressionHead
+from spectf.uq import EvidentialRegressionHead
 
 class BandConcat(nn.Module):
     """Module to concatenate band wavelength information to spectra.

@@ -403,6 +403,8 @@ class SpecTfEncoder(nn.Module):
             return torch.max(x, dim=1)[0]
         elif self.agg == 'flat':
             return torch.flatten(x, start_dim=1)
+        elif self.agg == 'first':
+            return x[:,0,:]
         else:
             raise ValueError(f'Aggregation method {self.agg} is not implemented.')
 

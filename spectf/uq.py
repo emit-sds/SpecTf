@@ -23,16 +23,15 @@ class EvidentialRegressionHead(nn.Module):
     def forward(self, X: torch.Tensor) -> torch.Tensor:
         """
         Args:
-          X: shape (b,4)
+          X: shape (b,3)
         Returns:
           shape (b,4) with [gamma, nu, alpha, beta] in valid range.
         """
         gamma = X[:, 0:1]                          # any real
         nu = F.softplus(X[:, 1:2])                 # > 0
-        alpha = F.softplus(X[:, 2:3]) + 1.0         # > 1
-        beta = F.softplus(X[:, 3:4])               # > 0
+        alpha = nu + 1.0                           # > 1
+        beta = F.softplus(X[:, 2:3])               # > 0
         return torch.cat((gamma, nu, alpha, beta), dim=1)
-    
 
 
 def compute_aleatoric_uct(beta: torch.Tensor, alpha: torch.Tensor, nu: torch.Tensor) -> torch.Tensor:

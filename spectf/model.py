@@ -9,6 +9,7 @@ Author: Jake Lee, jake.h.lee@jpl.nasa.gov
 import torch
 from torch import nn
 
+from uq import EvidentialRegressionHead
 
 class BandConcat(nn.Module):
     """Module to concatenate band wavelength information to spectra.
@@ -435,6 +436,50 @@ class SpecTfEncoder(nn.Module):
                 nn.init.xavier_uniform_(module.weight)
                 if module.bias is not None:
                     nn.init.constant_(module.bias, 0)
+
+class SpecTfEvidential(nn.Module):
+
+    def __init__(self,
+                 banddef: torch.Tensor,
+                 num_heads: int = 8,
+                 dim_proj: int = 64,
+                 dim_ff: int = 64,
+                 dropout: float = 0.1,
+                 agg: str = 'max',
+                 use_residual: bool = False,
+                 num_layers: int = 1):
+
+        super().__init__()
+
+        self.encoder = SpecTfEncoder(banddef,
+                                    dim_output=3,   # gamma, nu, beta
+                                    num_heads=num_heads,
+                                    dim_proj=dim_proj,
+                                    dim_ff=dim_ff,
+                                    dropout=dropout,
+                                    agg=agg,
+                                    use_residual=use_residual,
+                                    num_layers=num_layers)
+
+        self.evidential_head = EvidentialRegressionHead()
+
+    def forward(self, x: torch.Tensor):
+        """SpecTfEvidential forward pass.
+        
+        Args:
+            x (torch.Tensor): Input tensor of shape (b, s, 1)
+        
+        Returns:
+            torch.Tensor: Output tensor of shape (b, 4)
+        """
+        x = self.encoder(x)
+        x = self.evidential_head(x)
+
+        return x
+
+#########################
+# Experimental Temporal #
+#########################
 
 
 class BandConcatTemporal(nn.Module):

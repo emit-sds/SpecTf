@@ -10,8 +10,29 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+class DERHead(nn.Module):
+    """
+        Map the 4 logit channels [gamma, nu, alpha, beta] to valid ranges,
+        returning shape (b,4). 
+    """
 
-class EvidentialRegressionHead(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, X: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+          X: shape (b,4)
+        Returns:
+          shape (b,4) with [gamma, nu, alpha, beta] in valid range.
+        """
+        gamma = X[:, 0:1]                          # any real
+        nu = F.softplus(X[:, 1:2])                 # > 0
+        alpha = F.softplus(X[:, 2:3]) + 1.0        # > 1
+        beta = F.softplus(X[:, 3:4])               # > 0
+        return torch.cat((gamma, nu, alpha, beta), dim=1)
+
+class SDERHead(nn.Module):
     """
         Map the 4 logit channels [gamma, nu, alpha, beta] to valid ranges,
         returning shape (b,4). 

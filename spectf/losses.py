@@ -7,6 +7,7 @@ Author: William Keely, william.r.keely@jpl.nasa.gov
 """
 
 
+import math
 
 import torch
 import torch.nn as nn
@@ -68,3 +69,43 @@ class EvidentialHuberNLL(nn.Module):
         huber_component = (0.5 * quadratic.pow(2) + self.delta * linear) / var
         loss = torch.log(var) + (1.0 + self.coeff * nu) * huber_component
         return torch.mean(loss)
+    
+
+class GaussianNLLLoss(nn.Module):
+    def __init__(self, reduction: str | None = "mean", eps: float = 1e-6):
+        super().__init__()
+        self.reduction = reduction
+        self.eps = eps
+        self._c = 0.5 * math.log(2.0 * math.pi)
+
+    def forward(self, mu: torch.Tensor, sigma: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+        sigma = sigma.clamp(min=self.eps)
+        nll = -( -torch.log(sigma) - self._c - 0.5 * (y - mu).pow(2) / sigma )
+        if self.reduction == "mean":
+            return nll.mean()
+        if self.reduction == "batch":
+            return nll.mean(dim=tuple(range(1, nll.ndim)))
+        if self.reduction is None:
+            return nll
+        raise ValueError("reduction must be 'mean', 'batch', or None")
+
+
+class HuberNLLLoss(nn.Module):
+    def __init__(self, delta: float = 0.5, reduction: str | None = "mean", eps: float = 1e-6):
+        super().__init__()
+        self.delta = delta
+        self.reduction = reduction
+        self.eps = eps
+        self._c = 0.5 * math.log(2.0 * math.pi)
+
+    def forward(self, mu: torch.Tensor, sigma: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+        huber = torch.nn.functional.huber_loss(mu, y, reduction="none", delta=self.delta)
+        sigma = sigma.clamp(min=self.eps)
+        nll = -( -torch.log(sigma) - self._c - 0.5 * huber / sigma )
+        if self.reduction == "mean":
+            return nll.mean()
+        if self.reduction == "batch":
+            return nll.mean(dim=tuple(range(1, nll.ndim)))
+        if self.reduction is None:
+            return nll
+        raise ValueError("reduction must be 'mean', 'batch', or None")

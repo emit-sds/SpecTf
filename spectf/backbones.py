@@ -74,8 +74,8 @@ class GaussianMLP(nn.Module):
 class EvidentialMLP(nn.Module):
     def __init__(
         self,
-        input_dim: int,
         n_hidden: Sequence[int],
+        input_dim: int,
         output_dim: int = 4,
         activation: str = "LeakyReLU",
         weight_init: str = "kaiming",
@@ -115,5 +115,7 @@ class EvidentialMLP(nn.Module):
                 nn.init.zeros_(m.bias)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if x.ndim > 2:
+            x = x.view(x.size(0), -1)
         # (batch, 4)
         return self.net(x)

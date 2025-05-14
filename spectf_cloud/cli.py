@@ -1,3 +1,4 @@
+from pathlib import Path
 import rich_click as click
 from rich.traceback import install
 from trogon import tui
@@ -10,6 +11,7 @@ MAIN_CALL_ERR_MSG = """
 """
 
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
+DEFAULT_DIR = Path(__file__).resolve().parent
 
 install()
 
@@ -80,7 +82,8 @@ class SpecTfCliMetadata(object):
     start_ts: Optional[str]
 
 ## Add in all of the subcommands here
-from spectf_cloud import train, deploy, evaluation, comparison_models
+from spectf_cloud import train, evaluation, comparison_models
+from spectf_cloud.deploy import deploy_trt, deploy_pt 
 
 def main() -> None:
     spectf_cloud(obj=SpecTfCliMetadata())

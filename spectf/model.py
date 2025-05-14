@@ -387,19 +387,24 @@ class SpecTfEncoder(nn.Module):
         ])
 
         # Head
-        if agg == 'mean':
-            self.aggregate = lambda x: torch.mean(x, dim=1)
-            self.head = nn.Linear(dim_proj, dim_output)
-        elif agg == 'max':
-            self.aggregate = lambda x: torch.max(x, dim=1)[0]
-            self.head = nn.Linear(dim_proj, dim_output)
-        elif agg == 'flat':
-            self.aggregate = lambda x: torch.flatten(x, start_dim=1)
+        self.agg = agg
+        if agg == 'flat':
             self.head = nn.Linear(banddef.shape[0] * dim_proj, dim_output)
         else:
-            raise ValueError(f'Aggregation method {agg} is not implemented.')
+            self.head = nn.Linear(dim_proj, dim_output)
 
         self.initialize_weights()
+
+    def aggregate(self, x):
+        """Performs the selected aggregation method. Needs to be broken out here for PyTorch's JiT"""
+        if self.agg == 'mean':
+            return torch.mean(x, dim=1)
+        elif self.agg == 'max':
+            return torch.max(x, dim=1)[0]
+        elif self.agg == 'flat':
+            return torch.flatten(x, start_dim=1)
+        else:
+            raise ValueError(f'Aggregation method {self.agg} is not implemented.')
 
     def forward(self, x: torch.Tensor):
         """SpecTfEncoder forward pass.

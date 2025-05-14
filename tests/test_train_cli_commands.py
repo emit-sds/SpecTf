@@ -209,6 +209,5 @@ class TestTrainCommands(unittest.TestCase):
             files_written = os.listdir(tmpdir)
             self.assertEqual(len(files_written), 2, msg="Expected 2 file written. Got: "+str(files_written))
                 
-            
 if __name__ == "__main__": 
     unittest.main()

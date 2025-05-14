@@ -4,7 +4,7 @@ architecture:
   dim_ff: 64
   agg: max
 inference:
-  batch: 1024
+  batch: 4096
   workers: 0
 spectra:
   drop_band_ranges: [[0, 405], [1275, 1321], [2455, 9999]] # values are in nanometers

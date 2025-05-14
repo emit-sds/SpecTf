@@ -1,7 +1,7 @@
 [project]
 name = "spectf"
-version = "1.0.1"
-requires-python = ">=3.9"
+version = "0.0.2"
+requires-python = ">=3.9, <3.13"
 authors = [
   {name = "Michael Kiper"},
   {name = "Jake H Lee"},
@@ -28,7 +28,14 @@ dependencies = [
   "GDAL ~= 3.9.0",
 ]
 
-scripts = { spectf-cloud = "spectf_cloud.cli:main" }
+[project.scripts]
+spectf-cloud = "spectf_cloud.cli:main"
+
+[project.optional-dependencies]
+deploy-runtime = [
+  "tensorrt>=10.9.0",
+  "pycuda>=2025",
+]
 
 [build-system]
 requires = ["setuptools >= 75.8.0"]
@@ -36,3 +43,4 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 packages = ["spectf", "spectf_cloud"]
+include-package-data = true

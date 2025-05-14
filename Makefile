@@ -32,7 +32,7 @@ help: ## Show this help.
 ## Building:
 build: ## Build project artifact
 	$(PYTHON_COMMAND) -m pip install --upgrade build
-	$(PYTHON_COMMAND) -m build
+	$(PYTHON_COMMAND) -m build --wheel --sdist .
 
 clean: ## Clean project
 	rm -rf dist
@@ -43,5 +43,16 @@ dev-install: ## Locally install project in development mode
 	$(PYTHON_COMMAND) -m pip uninstall $(NAME)
 	$(PYTHON_COMMAND) -m pip install -e .
 
+dev-install-tensorrt: ## Locally install the optional TensorRT packages
+	$(PYTHON_COMMAND) -m install -e .[deploy-runtime]
+
 test: ## Quickly run unit tests
 	$(PYTHON_COMMAND) -m unittest discover -s tests
+
+upload: ## Upload SpecTf python build to PyPI
+	$(PYTHON_COMMAND) -m pip install --upgrade twine
+	twine upload dist/*
+
+upload-test: ## Upload SpecTf python build to TestPyPI
+	$(PYTHON_COMMAND) -m pip install --upgrade twine
+	twine upload -r testpypi dist/*

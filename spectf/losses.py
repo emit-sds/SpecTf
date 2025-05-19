@@ -17,6 +17,7 @@ class EvidentialNLL(nn.Module):
     """
     Example from:
       https://arxiv.org/abs/2205.10060
+      Eq. 12 implementation
     """
 
     def __init__(self, coeff: float = 0.01):
@@ -30,13 +31,13 @@ class EvidentialNLL(nn.Module):
         """
         gamma = logits[:, 0:1]
         nu    = logits[:, 1:2]
-        alpha = logits[:, 2:3]  
+        _alpha = logits[:, 2:3] # nu + 1, but not used
         beta  = logits[:, 3:4]
 
         error = gamma - y_true
-        var   = beta / (nu + 1e-9)  
+        var   = beta / (nu + 1e-9)
 
-        #   log(var) + (1.0 + coeff*nu) * error^2 / var 
+        #   log(var) + (1.0 + coeff*nu) * error^2 / var
 
         loss = torch.log(var) + (1.0 + self.coeff * nu) * error.pow(2) / var
         return torch.mean(loss)

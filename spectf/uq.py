@@ -10,6 +10,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 class DERHead(nn.Module):
     """
         Map the 4 logit channels [gamma, nu, alpha, beta] to valid ranges,

@@ -61,14 +61,16 @@ class EvidentialHuberNLL(nn.Module):
         alpha = logits[:, 2:3]  
         beta  = logits[:, 3:4]
 
-        error = gamma - y_true
+        huber = torch.nn.functional.huber_loss(gamma,
+                y_true,
+                reduction='none',
+                delta=delta,
+                weight=None
+        )
         var   = beta / (nu + self.eps)  
 
         # Huber loss
-        quadratic = torch.minimum(torch.abs(error), self.delta)
-        linear = torch.abs(error) - quadratic
-        huber_component = (0.5 * quadratic.pow(2) + self.delta * linear) / var
-        loss = torch.log(var) + (1.0 + self.coeff * nu) * huber_component
+        loss = torch.log(var) + (1.0 + self.coeff * nu) * huber / var
         return torch.mean(loss)
     
 

@@ -113,7 +113,7 @@ def compute_epistemic_uct_DER(beta: torch.Tensor, alpha: torch.Tensor, nu: torch
 
         Taking the sqrt we get a 1-sigma estimate for the epistemic uncertainty.
     """
-    return torch.sqrt(beta/(alpha - 1)*nu)
+    return torch.sqrt(beta/((alpha - 1)*nu))
 
 
 def compute_evidential_predictions_DER(logits: torch.Tensor) -> dict:

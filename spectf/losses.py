@@ -13,14 +13,14 @@ import torch
 import torch.nn as nn
 
 
-class EvidentialNLL(nn.Module):
+class SDER_Loss(nn.Module):
     """
     Example from:
       https://arxiv.org/abs/2205.10060
       Eq. 12 implementation
     """
 
-    def __init__(self, coeff: float = 0.01):
+    def __init__(self, coeff: float = 2):
         super().__init__()
         self.coeff = coeff
 
@@ -36,8 +36,6 @@ class EvidentialNLL(nn.Module):
 
         error = gamma - y_true
         var   = beta / (nu + 1e-9)
-
-        #   log(var) + (1.0 + coeff*nu) * error^2 / var
 
         loss = torch.log(var) + (1.0 + self.coeff * nu) * error.pow(2) / var
         return torch.mean(loss)
@@ -132,13 +130,17 @@ def NormalInverseGamma_NLL(y, gamma, v, alpha, beta, reduce=True):
     return nll.mean() if reduce else nll
 
 class DER_Loss(nn.Module):
-    def __init__(self, coeff: float = 0.01,
+    def __init__(self, coeff: float = 0.1,
                  reduce: bool = True, ):
         super().__init__()
         self.coeff = coeff
         self.reduce = reduce
 
-    def forward(self, y, gamma, v, alpha, beta):
+    def forward(self, logits, y):
+        gamma = logits[:, 0:1]
+        v = logits[:, 1:2]
+        alpha = logits[:, 2:3]
+        beta = logits[:, 3:4]
         loss_nll = NormalInverseGamma_NLL(y, gamma, v, alpha, beta, self.reduce)
         loss_reg = NormalInverseGamma_Reg(y, gamma, v, alpha, beta, self.reduce)
         return loss_nll + self.coeff * loss_reg

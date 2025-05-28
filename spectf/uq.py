@@ -54,11 +54,34 @@ class SDERHead(nn.Module):
         alpha = nu + 1.0                           # > 1
         beta = F.softplus(X[:, 2:3])               # > 0
         return torch.cat((gamma, nu, alpha, beta), dim=1)
+      
+class SDERHeadPos(nn.Module):
+    """
+        Map the 4 logit channels [gamma, nu, alpha, beta] to valid ranges,
+        returning shape (b,4). 
+    """
+
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, X: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+          X: shape (b,3)
+        Returns:
+          shape (b,4) with [gamma, nu, alpha, beta] in valid range.
+        """
+        gamma = F.softplus(X[:, 0:1])               # any real
+        nu = F.softplus(X[:, 1:2])                 # > 0
+        alpha = nu + 1.0                           # > 1
+        beta = F.softplus(X[:, 2:3])               # > 0
+        return torch.cat((gamma, nu, alpha, beta), dim=1)
 
 """sDER helper functions for computing UQ from logits."""
 def compute_aleatoric_uct_sDER(beta: torch.Tensor, alpha: torch.Tensor, nu: torch.Tensor) -> torch.Tensor:
+
     """
-        sqrt( beta * (1+nu) / (alpha * nu) )
+        sqrt( beta * (1+nu) / (alpha * nu) ) # 1-sigma
     """
     numerator = beta * (1.0 + nu)
     denominator = alpha * nu + 1e-9
@@ -67,7 +90,7 @@ def compute_aleatoric_uct_sDER(beta: torch.Tensor, alpha: torch.Tensor, nu: torc
 
 def compute_epistemic_uct_sDER(nu: torch.Tensor) -> torch.Tensor:
     """
-        1 / sqrt(nu)
+        1 / sqrt(nu) # 1-sigma
     """
     return 1.0 / torch.sqrt(torch.clamp(nu, min=1e-9))
 

@@ -58,17 +58,19 @@ class EvidentialHuberNLL(nn.Module):
         """
         gamma = logits[:, 0:1]
         nu    = logits[:, 1:2]
-        alpha = logits[:, 2:3]  
+        _alpha = logits[:, 2:3]  
         beta  = logits[:, 3:4]
 
-        error = gamma - y_true
+        huber = torch.nn.functional.huber_loss(gamma,
+                y_true,
+                reduction='none',
+                delta=self.delta,
+                weight=None
+        )
         var   = beta / (nu + self.eps)  
 
         # Huber loss
-        quadratic = torch.minimum(torch.abs(error), self.delta)
-        linear = torch.abs(error) - quadratic
-        huber_component = (0.5 * quadratic.pow(2) + self.delta * linear) / var
-        loss = torch.log(var) + (1.0 + self.coeff * nu) * huber_component
+        loss = torch.log(var) + (1.0 + self.coeff * nu) * huber / var
         return torch.mean(loss)
     
 
@@ -111,6 +113,34 @@ class HuberNLLLoss(nn.Module):
             return nll
         raise ValueError("reduction must be 'mean', 'batch', or None")
     
+class EvidentialTweedieNLL(nn.Module):
+
+    def __init__(self, p: float = 1.5, coeff: float = 0.01):
+        super().__init__()
+        self.p = p  # Tweedie power parameter (guaranteed 1 < p < 2)
+        self.eps = 1e-9  # to avoid division by zero
+        self.coeff = coeff
+
+    def forward(self, logits: torch.Tensor, y_true: torch.Tensor):
+        """
+            logits: shape (b,4) interpreted as [gamma, nu, alpha, beta]
+            y_true: shape (b,1)
+        """
+        gamma = logits[:, 0:1]
+        nu    = logits[:, 1:2]
+        _alpha = logits[:, 2:3]  
+        beta  = logits[:, 3:4]
+
+        # Tweedie loss: -y * (mu^(1-p) / (1-p)) + (mu^(2-p) / (2-p))
+        term1 = -y_true * (torch.pow(gamma, 1 - self.p) / (1 - self.p))
+        term2 = torch.pow(gamma, 2 - self.p) / (2 - self.p)
+        tweedie = term1 + term2
+
+        var = beta / (nu + self.eps)  
+
+        # Tweedie loss with evidential weighting
+        loss = torch.log(var) + (1.0 + self.coeff * nu) * tweedie / var
+        return torch.mean(loss)
 
 
 

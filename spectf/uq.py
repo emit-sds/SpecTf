@@ -125,11 +125,11 @@ def compute_evidential_predictions_DER(logits: torch.Tensor) -> dict:
 
     aleatoric_component = compute_aleatoric_uct_DER(beta, alpha)
     epistemic_component = compute_epistemic_uct_DER(beta, alpha, nu)
-    total_uq = aleatoric_component + epistemic_component
+    total_uq = torch.sqrt(aleatoric_component.pow(2) + epistemic_component.pow(2))
 
     return {
         "pred"          : gamma,         # shape (b,1)
-        "pred_uq"       : aleatoric_component+epistemic_component,      # shape (b,1)
+        "pred_uq"       : total_uq,      # shape (b,1)
         "aleatoric_component"  : aleatoric_component,
         "epistemic_component"  : epistemic_component,
         "logits"    : logits,            # shape (b,4)

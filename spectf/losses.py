@@ -116,73 +116,30 @@ class HuberNLLLoss(nn.Module):
 
 
 
-""" Regularized KL DER loss. """
-class NormalInverseGamma_NLL(nn.Module):
-    def __init__(self, reduce: bool = True, eps: float = 1e-6):
+""" Regularized DER loss. """
+def NormalInverseGamma_Reg(y, gamma, v, alpha, beta, reduce=True):
+    error = torch.abs(y-gamma)
+    evidential = 2.0 * v * (alpha)
+    reg = error * evidential
+    return reg.mean() if reduce else reg
+
+def NormalInverseGamma_NLL(y, gamma, v, alpha, beta, reduce=True):
+    two_blambda = 2.0 * beta * (1.0 + v)                    
+    nll = 0.5*torch.log(torch.pi/v)  \
+        - alpha*torch.log(two_blambda)  \
+        + (alpha+0.5) * torch.log(v*(y-gamma)**2 + two_blambda)  \
+        + torch.lgamma(alpha)  \
+        - torch.lgamma(alpha+0.5)
+    return nll.mean() if reduce else nll
+
+class DER_Loss(nn.Module):
+    def __init__(self, coeff: float = 1.0, 
+                 reduce: bool = True, ):
         super().__init__()
-        self.reduce = reduce
-        self.eps = eps
-
-    def forward(self, y, gamma, v, alpha, beta):
-        v = v.clamp_min(self.eps)
-        alpha = alpha.clamp_min(self.eps)
-        beta = beta.clamp_min(self.eps)
-
-        two_blambda = 2.0 * beta * (1.0 + v)                    
-        nll = (0.5 * torch.log(math.pi / v)
-               - alpha * torch.log(two_blambda)
-               + (alpha + 0.5) * torch.log(v * (y - gamma).pow(2) + two_blambda)
-               + torch.lgamma(alpha)
-               - torch.lgamma(alpha + 0.5))
-        return nll.mean() if self.reduce else nll
-
-
-class NormalInverseGamma_KL(nn.Module):
-    def forward(self, mu1, v1, a1, b1, mu2, v2, a2, b2):
-        term1 = 0.5 * (a1 - 1) / b1 * (v2 * (mu2 - mu1).pow(2))
-        term2 = 0.5 * v2 / v1
-        term3 = -0.5 * torch.log(torch.abs(v2) / torch.abs(v1))
-        term4 = -0.5
-        term5 = a2 * torch.log(b1 / b2)
-        term6 = -(torch.lgamma(a1) - torch.lgamma(a2))
-        term7 = (a1 - a2) * torch.digamma(a1)
-        term8 = -(b1 - b2) * a1 / b1
-        return term1 + term2 + term3 + term4 + term5 + term6 + term7 + term8
-
-
-class NormalInverseGamma_Reg(nn.Module):
-    def __init__(self, omega: float = 0.01, reduce: bool = True, kl: bool = False):
-        super().__init__()
-        self.omega = omega
-        self.reduce = reduce
-        self.kl_flag = kl
-        self.kl_module = NormalInverseGamma_KL()
-
-    def forward(self, y, gamma, v, alpha, beta):
-        error = torch.abs(y - gamma)
-
-        if self.kl_flag:
-            kl = self.kl_module(
-                gamma, v, alpha, beta,
-                gamma, self.omega, 1.0 + self.omega, beta
-            )
-            reg = error * kl
-        else:
-            evidential = 2.0 * v + alpha
-            reg = error * evidential
-
-        return reg.mean() if self.reduce else reg
-
-
-class DERLossRegularized(nn.Module):
-    def __init__(self, coeff: float = 1.0, omega: float = 0.01,
-                 reduce: bool = True, kl: bool = False):
-        super().__init__()
-        self.nll = NormalInverseGamma_NLL(reduce=reduce)
-        self.reg = NormalInverseGamma_Reg(omega=omega, reduce=reduce, kl=kl)
         self.coeff = coeff
+        self.reduce = reduce
 
     def forward(self, y, gamma, v, alpha, beta):
-        loss_nll = self.nll(y, gamma, v, alpha, beta)
-        loss_reg = self.reg(y, gamma, v, alpha, beta)
+        loss_nll = NormalInverseGamma_NLL(y, gamma, v, alpha, beta)
+        loss_reg = NormalInverseGamma_Reg(y, gamma, v, alpha, beta, self.reduce,)
         return loss_nll + self.coeff * loss_reg

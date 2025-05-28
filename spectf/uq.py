@@ -55,8 +55,8 @@ class SDERHead(nn.Module):
         beta = F.softplus(X[:, 2:3])               # > 0
         return torch.cat((gamma, nu, alpha, beta), dim=1)
 
-
-def compute_aleatoric_uct(beta: torch.Tensor, alpha: torch.Tensor, nu: torch.Tensor) -> torch.Tensor:
+"""sDER helper functions for computing UQ from logits."""
+def compute_aleatoric_uct_sDER(beta: torch.Tensor, alpha: torch.Tensor, nu: torch.Tensor) -> torch.Tensor:
     """
         sqrt( beta * (1+nu) / (alpha * nu) )
     """
@@ -65,14 +65,56 @@ def compute_aleatoric_uct(beta: torch.Tensor, alpha: torch.Tensor, nu: torch.Ten
     return torch.sqrt(torch.clamp(numerator / denominator, min=1e-9))
 
 
-def compute_epistemic_uct(nu: torch.Tensor) -> torch.Tensor:
+def compute_epistemic_uct_sDER(nu: torch.Tensor) -> torch.Tensor:
     """
         1 / sqrt(nu)
     """
     return 1.0 / torch.sqrt(torch.clamp(nu, min=1e-9))
 
 
-def compute_evidential_predictions(logits: torch.Tensor) -> dict:
+def compute_evidential_predictions_sDER(logits: torch.Tensor) -> dict:
+    """
+        Output dict.
+    """
+    gamma = logits[:, 0:1]
+    nu    = logits[:, 1:2]
+    alpha = logits[:, 2:3]
+    beta  = logits[:, 3:4]
+
+    aleatoric_component = compute_aleatoric_uct_sDER(beta, alpha, nu)
+    epistemic_component = compute_epistemic_uct_sDER(nu)
+    total_uq = torch.sqrt(aleatoric_component.pow(2) + epistemic_component.pow(2))
+
+    return {
+        "pred"          : gamma,         # shape (b,1)
+        "pred_uq"       : total_uq,      # shape (b,1)
+        "aleatoric_component"  : aleatoric_component,
+        "epistemic_component"  : epistemic_component,
+        "logits"    : logits,            # shape (b,4)
+    }
+
+
+""" DER helper functions for computing UQ from logits."""
+def compute_aleatoric_uct_DER(beta: torch.Tensor, alpha: torch.Tensor) -> torch.Tensor:
+    """
+        beta/(alpha - 1) = E(sigma^2)
+
+        Taking the sqrt we get a 1-sigma estimate for the aleatoric uncertainty.
+    """
+
+    return torch.sqrt(beta/(alpha-1))
+
+
+def compute_epistemic_uct_DER(beta: torch.Tensor, alpha: torch.Tensor, nu: torch.Tensor) -> torch.Tensor:
+    """
+        beta / nu(alpha-1) = var(mu)
+
+        Taking the sqrt we get a 1-sigma estimate for the epistemic uncertainty.
+    """
+    return torch.sqrt(beta/(alpha - 1)*nu)
+
+
+def compute_evidential_predictions_DER(logits: torch.Tensor) -> dict:
     """
         Output dict.
     """
@@ -83,8 +125,7 @@ def compute_evidential_predictions(logits: torch.Tensor) -> dict:
 
     aleatoric_component = compute_aleatoric_uct(beta, alpha, nu)
     epistemic_component = compute_epistemic_uct(nu)
-
-    return gamma, aleatoric_component, epistemic_component
+    total_uq = aleatoric_component + epistemic_component
 
     # return {
     #     "pred"          : gamma,         # shape (b,1)

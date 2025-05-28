@@ -112,50 +112,19 @@ class HuberNLLLoss(nn.Module):
         if self.reduction is None:
             return nll
         raise ValueError("reduction must be 'mean', 'batch', or None")
-    
-class EvidentialTweedieNLL(nn.Module):
-
-    def __init__(self, p: float = 1.5, coeff: float = 0.01):
-        super().__init__()
-        self.p = p  # Tweedie power parameter (guaranteed 1 < p < 2)
-        self.eps = 1e-9  # to avoid division by zero
-        self.coeff = coeff
-
-    def forward(self, logits: torch.Tensor, y_true: torch.Tensor):
-        """
-            logits: shape (b,4) interpreted as [gamma, nu, alpha, beta]
-            y_true: shape (b,1)
-        """
-        gamma = logits[:, 0:1]
-        nu    = logits[:, 1:2]
-        _alpha = logits[:, 2:3]  
-        beta  = logits[:, 3:4]
-
-        # Tweedie loss: -y * (mu^(1-p) / (1-p)) + (mu^(2-p) / (2-p))
-        term1 = -y_true * (torch.pow(gamma, 1 - self.p) / (1 - self.p))
-        term2 = torch.pow(gamma, 2 - self.p) / (2 - self.p)
-        tweedie = term1 + term2
-
-        var = beta / (nu + self.eps)  
-
-        # Tweedie loss with evidential weighting
-        loss = torch.log(var) + (1.0 + self.coeff * nu) * tweedie / var
-        return torch.mean(loss)
-
-
-
 
 
 """ Regularized DER loss. """
 def NormalInverseGamma_Reg(y, gamma, v, alpha, beta, reduce=True):
     error = torch.abs(y-gamma)
-    evidential = 2.0 * v * (alpha)
+    evidential = 2.0 * v + (alpha)
     reg = error * evidential
     return reg.mean() if reduce else reg
 
 def NormalInverseGamma_NLL(y, gamma, v, alpha, beta, reduce=True):
-    two_blambda = 2.0 * beta * (1.0 + v)                    
-    nll = 0.5*torch.log(torch.pi/v)  \
+    eps=1e-9
+    two_blambda = 2.0 * beta * (1.0 + v)
+    nll = 0.5*torch.log(torch.pi/(v+eps))  \
         - alpha*torch.log(two_blambda)  \
         + (alpha+0.5) * torch.log(v*(y-gamma)**2 + two_blambda)  \
         + torch.lgamma(alpha)  \
@@ -163,13 +132,13 @@ def NormalInverseGamma_NLL(y, gamma, v, alpha, beta, reduce=True):
     return nll.mean() if reduce else nll
 
 class DER_Loss(nn.Module):
-    def __init__(self, coeff: float = 1.0, 
+    def __init__(self, coeff: float = 0.01,
                  reduce: bool = True, ):
         super().__init__()
         self.coeff = coeff
         self.reduce = reduce
 
     def forward(self, y, gamma, v, alpha, beta):
-        loss_nll = NormalInverseGamma_NLL(y, gamma, v, alpha, beta)
-        loss_reg = NormalInverseGamma_Reg(y, gamma, v, alpha, beta, self.reduce,)
+        loss_nll = NormalInverseGamma_NLL(y, gamma, v, alpha, beta, self.reduce)
+        loss_reg = NormalInverseGamma_Reg(y, gamma, v, alpha, beta, self.reduce)
         return loss_nll + self.coeff * loss_reg

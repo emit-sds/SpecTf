@@ -54,28 +54,7 @@ class SDERHead(nn.Module):
         alpha = nu + 1.0                           # > 1
         beta = F.softplus(X[:, 2:3])               # > 0
         return torch.cat((gamma, nu, alpha, beta), dim=1)
-      
-class SDERHeadPos(nn.Module):
-    """
-        Map the 4 logit channels [gamma, nu, alpha, beta] to valid ranges,
-        returning shape (b,4). 
-    """
 
-    def __init__(self):
-        super().__init__()
-
-    def forward(self, X: torch.Tensor) -> torch.Tensor:
-        """
-        Args:
-          X: shape (b,3)
-        Returns:
-          shape (b,4) with [gamma, nu, alpha, beta] in valid range.
-        """
-        gamma = F.softplus(X[:, 0:1])               # any real
-        nu = F.softplus(X[:, 1:2])                 # > 0
-        alpha = nu + 1.0                           # > 1
-        beta = F.softplus(X[:, 2:3])               # > 0
-        return torch.cat((gamma, nu, alpha, beta), dim=1)
 
 """sDER helper functions for computing UQ from logits."""
 def compute_aleatoric_uct_sDER(beta: torch.Tensor, alpha: torch.Tensor, nu: torch.Tensor) -> torch.Tensor:
@@ -150,10 +129,12 @@ def compute_evidential_predictions_DER(logits: torch.Tensor) -> dict:
     epistemic_component = compute_epistemic_uct_DER(beta, alpha, nu)
     total_uq = torch.sqrt(aleatoric_component.pow(2) + epistemic_component.pow(2))
 
-    return {
-        "pred"          : gamma,         # shape (b,1)
-        "pred_uq"       : total_uq,      # shape (b,1)
-        "aleatoric_component"  : aleatoric_component,
-        "epistemic_component"  : epistemic_component,
-        "logits"    : logits,            # shape (b,4)
-    }
+
+    return gamma, aleatoric_component, epistemic_component, total_uq
+    # return {
+    #     "pred"          : gamma,         # shape (b,1)
+    #     "pred_uq"       : total_uq,      # shape (b,1)
+    #     "aleatoric_component"  : aleatoric_component,
+    #     "epistemic_component"  : epistemic_component,
+    #     "logits"    : logits,            # shape (b,4)
+    # }

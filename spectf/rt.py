@@ -134,19 +134,16 @@ class RadiativeTransferEngine:
             np.clip(shift_nm, -self.clip_nm, self.clip_nm, out=shift_nm)
 
             rdn = self._shift_batch(rdn, shift_nm)          # shifted spectra
-        # if self.shift:
-        #     rdn, shift_nm = self._shift_batch_pt_one(rdn)
 
-        # ch4_col = np.full(B, 1.5, dtype=np.float32)      # shape (B,)
         ch4_col = self.rng.uniform(self.ppmm_lo, self.ppmm_hi, size=B).astype(np.float32)
 
 
-        AERFRAC_2       = atm[:, 0]
-        H2OSTR          = atm[:, 2]
-        elev_km         = loc[:, 2] / 1_000.0
-        observer_zen    = 180.0 - obs[:, 2]
-        solzen          = obs[:, 4]
-        cosz            = np.cos(np.deg2rad(solzen))
+        AERFRAC_2 = atm[:, 0]
+        H2OSTR = atm[:, 2]
+        elev_km = loc[:, 2] / 1_000.0
+        observer_zen = 180.0 - obs[:, 2]
+        solzen = obs[:, 4]
+        cosz = np.cos(np.deg2rad(solzen))
 
         inj_rdn = rdn.astype(np.float32, copy=True)
         inj_toa = np.empty_like(rdn, dtype=np.float32)

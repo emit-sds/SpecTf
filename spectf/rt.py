@@ -129,16 +129,16 @@ class RadiativeTransferEngine:
         """
         B, _ = rdn.shape
 
-        # if self.shift:
-        #     shift_nm = self.rng.normal(0.0, self.sigma_nm, size=B).astype(np.float32)
-        #     np.clip(shift_nm, -self.clip_nm, self.clip_nm, out=shift_nm)
-
-        #     rdn = self._shift_batch(rdn, shift_nm)          # shifted spectra
         if self.shift:
-            rdn, shift_nm = self._shift_batch_pt_one(rdn)
+            shift_nm = self.rng.normal(0.0, self.sigma_nm, size=B).astype(np.float32)
+            np.clip(shift_nm, -self.clip_nm, self.clip_nm, out=shift_nm)
 
-        ch4_col = np.full(B, 1.5, dtype=np.float32)      # shape (B,)
-        # ch4_col = self.rng.uniform(self.ppmm_lo, self.ppmm_hi, size=B).astype(np.float32)
+            rdn = self._shift_batch(rdn, shift_nm)          # shifted spectra
+        # if self.shift:
+        #     rdn, shift_nm = self._shift_batch_pt_one(rdn)
+
+        # ch4_col = np.full(B, 1.5, dtype=np.float32)      # shape (B,)
+        ch4_col = self.rng.uniform(self.ppmm_lo, self.ppmm_hi, size=B).astype(np.float32)
 
 
         AERFRAC_2       = atm[:, 0]

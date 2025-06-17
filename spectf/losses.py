@@ -76,11 +76,11 @@ class GaussianNLLLoss(nn.Module):
     def __init__(self, reduction: str | None = "mean", eps: float = 1e-6):
         super().__init__()
         self.reduction = reduction
-        self.eps = eps
+        # self.eps = eps # we should check that we have applied softplus to the backbone sigma output.
         self._c = 0.5 * math.log(2.0 * math.pi)
 
     def forward(self, mu: torch.Tensor, sigma: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-        sigma = sigma.clamp(min=self.eps)
+        # sigma = sigma.clamp(min=self.eps) # we should be softmaxing here.
         nll = -( -torch.log(sigma) - self._c - 0.5 * (y - mu).pow(2) / sigma )
         if self.reduction == "mean":
             return nll.mean()
@@ -96,12 +96,12 @@ class HuberNLLLoss(nn.Module):
         super().__init__()
         self.delta = delta
         self.reduction = reduction
-        self.eps = eps
+        # self.eps = eps # SOFTPLUS on backbone
         self._c = 0.5 * math.log(2.0 * math.pi)
 
     def forward(self, mu: torch.Tensor, sigma: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         huber = torch.nn.functional.huber_loss(mu, y, reduction="none", delta=self.delta)
-        sigma = sigma.clamp(min=self.eps)
+        # sigma = sigma.clamp(min=self.eps) # USE SOFTPLUS
         nll = -( -torch.log(sigma) - self._c - 0.5 * huber / sigma )
         if self.reduction == "mean":
             return nll.mean()

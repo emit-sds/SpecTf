@@ -47,7 +47,7 @@ def onnx(
     with open(arch_file, 'r', encoding='utf-8') as f:
         spec = yaml.safe_load(f)
 
-        arch = spec['arch']
+        arch = spec['architecture']
 
         model = SpecTfEncoderTensorRT(
             dim_proj=arch['dim_proj'],
@@ -55,10 +55,10 @@ def onnx(
             agg=arch['agg'],
         ).to(DEVICE, dtype=PRECISION)
 
-        model.load_state_dict(weights)
+        model.load_state_dict(torch.load(weights, map_location=DEVICE))
         model.eval()
 
-        dummy_input = torch.randn((batch_size, 268), device=DEVICE).to(PRECISION)
+        dummy_input = torch.randn((batch_size, 268, 2), device=DEVICE).to(PRECISION)
         torch.onnx.export(model, dummy_input, output_filepath)
 
 if __name__ == '__main__':

@@ -36,6 +36,9 @@ deploy-runtime = [
   "tensorrt==10.9.0.34",
   "pycuda>=2025",
 ]
+make-onnx = [
+  "onnx>=1.18.0",
+]
 
 [build-system]
 requires = ["setuptools >= 75.8.0"]

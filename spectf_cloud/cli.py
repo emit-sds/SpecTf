@@ -82,7 +82,7 @@ class SpecTfCliMetadata(object):
     start_ts: Optional[str]
 
 ## Add in all of the subcommands here
-from spectf_cloud import train, evaluation, comparison_models
+from spectf_cloud import train, evaluation, comparison_models, finetune
 from spectf_cloud.deploy import deploy_trt, deploy_pt 
 
 def main() -> None:

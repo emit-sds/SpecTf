@@ -1,7 +1,8 @@
 __all__ = [
     "evaluation", 
     "deploy", 
-    "train", 
+    "train",
+    "finetune",
     "comparison_models",
 ]
 __author__ = "Jet Propulsion Laboratory, California Institute of Technology"

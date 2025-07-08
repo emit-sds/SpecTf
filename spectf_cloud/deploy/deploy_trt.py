@@ -10,7 +10,6 @@ This version of the dployment script quantizes the model, and runs it with Nvidi
 
 import logging
 import time
-from importlib.util import find_spec
 
 import yaml
 import rich_click as click
@@ -25,13 +24,10 @@ from spectf.model import BandConcat
 from spectf.dataset import RasterDatasetTOA
 from spectf_cloud.cli import spectf_cloud, MAIN_CALL_ERR_MSG, DEFAULT_DIR
 
-_deps = ['tensorrt', 'pycuda']
-__SUPPORTS_TRT__ = all(find_spec(d) for d in _deps)
-if __SUPPORTS_TRT__:
-    from spectf_cloud.deploy.tensor_rt_model import load_model_network_engine
-    import tensorrt as trt
-    import pycuda.driver as cuda
-    import pycuda.autoinit
+from spectf_cloud.deploy.tensor_rt_model import load_model_network_engine
+import tensorrt as trt
+import pycuda.driver as cuda
+import pycuda.autoinit
 
 PRECISION = torch.bfloat16
 ENV_VAR_PREFIX = 'SPECTF_DEPLOY_'

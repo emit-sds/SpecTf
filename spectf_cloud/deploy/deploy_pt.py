@@ -84,10 +84,10 @@ logging.basicConfig(
 )
 @click.option(
     "--weights",
-    default=DEFAULT_DIR/"weights.pt",
+    default=DEFAULT_DIR/"weights/current.pt",
     type=click.Path(exists=True, dir_okay=False),
     show_default=True,
-    help="Filepath to trained model weights.",
+    help="Filepath to latest trained model weights.",
     envvar=f"{ENV_VAR_PREFIX}WEIGHTS",
 )
 @click.option(

@@ -83,7 +83,11 @@ class SpecTfCliMetadata(object):
 
 ## Add in all of the subcommands here
 from spectf_cloud import train, evaluation, comparison_models
-from spectf_cloud.deploy import deploy_trt, deploy_pt 
+from spectf_cloud.deploy import deploy_pt 
+try:
+    from spectf_cloud.deploy import deploy_trt
+except (ModuleNotFoundError, ImportError):
+    pass
 
 def main() -> None:
     spectf_cloud(obj=SpecTfCliMetadata())

@@ -9,5 +9,5 @@ try:
     import pycuda.driver as cuda
     from spectf_cloud.deploy import deploy_trt
     __all__.append('deploy_trt')
-except ModuleNotFoundError:
+except (ModuleNotFoundError, ImportError):
     pass

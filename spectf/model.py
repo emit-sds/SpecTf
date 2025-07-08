@@ -522,38 +522,29 @@ class SpecTfDER(nn.Module):
 # Experimental Temporal #
 #########################
 
+class SpecTfTokenEncoder(nn.Module):
+    """Encoder based Spectral Transformer model.
+    
+    This is the simplest Spectral Transformer architecture, consisting only of
+    encoder layers. For most tasks, a single encoder layer is a good starting
+    point. Aside from hyperparameters that affect the dimensionality of layers,
+    the aggregation method is the most significant parameter to tune. Some
+    intuition suggests that 'max' aggregation is appropriate for tasks where
+    a few bands are more important than others, while 'mean' aggregation is
+    appropriate when the overall shape of the spectrum is important. While the
+    'flat' aggregation avoids pooling altogether, it fixes the length of the
+    input sequence, and limits the model to a fixed set of bands.
 
-class BandConcatTemporal(nn.Module):
-    """Module to concatenate band wavelength information to spectra."""
+    Model weights are initialized using Xavier initialization and model biases
+    are initialized to zero with self.initialize_weights().
 
-    def __init__(self, banddef: torch.Tensor, mean: int = 1440, std: int = 600):
-        """Initialize BandConcat module."""
-        super().__init__()
-        self.mean = mean
-        self.std = std
-
-        # Reshape from (s,) to (1, 1, s, 1)
-        self.banddef = banddef.unsqueeze(-1).unsqueeze(0).unsqueeze(0)
-        #self.banddef = banddef.unsqueeze(-1).unsqueeze(0)
-
-        # Normalize band wavelengths
-        self.banddef = (self.banddef - self.mean) / self.std
-
-    def forward(self, spectra: torch.Tensor):
-        """BandConcat forward pass.
-
-        Args:
-            spectra (torch.Tensor): tensor of shape (b, t, s, 1)
-
-        Returns:
-            torch.Tensor: concatenated tensor of shape (b, t, s, 2)
-        """
-
-        encoded = torch.cat((spectra, self.banddef.expand_as(spectra)), dim=-1)
-        return encoded
-
-
-class TemporalTokenSpecTfEncoder(nn.Module):
+    Attributes:
+        band_concat: BandConcat module
+        spectral_embed: SpectralEmbed module
+        layers: List of EncoderLayer modules
+        aggregate: Aggregation method ('mean', 'max', 'flat')
+        head: Linear layer for classification or regression
+    """
     def __init__(self,
                  banddef: torch.Tensor,
                  dim_output: int = 2,
@@ -561,22 +552,30 @@ class TemporalTokenSpecTfEncoder(nn.Module):
                  dim_proj: int = 64,
                  dim_ff: int = 64,
                  dropout: float = 0.1,
-                 use_residual: bool = True,
-                 num_layers: int = 2,
-                 max_time: int = 2):
-        """Initialize TemporalTokenSpecTfEncoder module.
+                 agg: str = 'cls',
+                 use_residual: bool = False,
+                 num_layers: int = 1):
+        """Initialize SpecTfEncoder module.
+
+        Args:
+            banddef (torch.Tensor): Band center wavelengths.
+            dim_output (int): Output dimension of the model. Default 2.
+            num_heads (int): Number of attention heads. Must be a divisor of
+                             dim_proj. Default 8.
+            dim_proj (int): Dimension of the projected tensors. Default 64.
+            dim_ff (int): Dimension of the intermediate tensors. Default 64.
+            dropout (float): Dropout rate. Default 0.1.
+            agg (str): Aggregation method ('mean', 'max', 'flat').
+                       Default 'max'.
+            use_residual (bool): Whether to use residual connections.
+                                 Default False.
+            num_layers (int): Number of encoder layers. Default 1.
         """
         super().__init__()
 
         # Embedding
-        self.band_concat = BandConcatTemporal(banddef)
+        self.band_concat = BandConcat(banddef)
         self.spectral_embed = SpectralEmbed(n_filters=dim_proj)
-        # (b, 3, s, dim_proj)
-        self.temporal_encode = nn.Parameter(torch.randn(size=(1, max_time+1, 1, dim_proj)))
-
-        # Token
-        self.rgr_token = nn.Parameter(torch.randn(size=(dim_proj,)))
-        nn.init.normal_(self.rgr_token, std=0.02)
 
         # Attention
         self.layers = nn.ModuleList([
@@ -584,44 +583,50 @@ class TemporalTokenSpecTfEncoder(nn.Module):
             for _ in range(num_layers)
         ])
 
+        # CLS
+        self.cls_token = nn.Parameter(torch.randn(1, 1, dim_proj))
+
         # Head
-        self.head = nn.Linear(dim_proj, dim_output)
+        self.agg = agg
+        if agg == 'flat':
+            self.head = nn.Linear(banddef.shape[0] * dim_proj, dim_output)
+        else:
+            self.head = nn.Linear(dim_proj, dim_output)
 
         self.initialize_weights()
+
+    def aggregate(self, x):
+        """Performs the selected aggregation method. Needs to be broken out here for PyTorch's JiT"""
+        if self.agg == 'mean':
+            return torch.mean(x, dim=1)
+        elif self.agg == 'max':
+            return torch.max(x, dim=1)[0]
+        elif self.agg == 'flat':
+            return torch.flatten(x, start_dim=1)
+        elif self.agg == 'cls':
+            return x[:,0,:]
+        else:
+            raise ValueError(f'Aggregation method {self.agg} is not implemented.')
 
     def forward(self, x: torch.Tensor):
         """SpecTfEncoder forward pass.
         
         Args:
-            x (torch.Tensor): Input tensor of shape (b, t, s)
+            x (torch.Tensor): Input tensor of shape (b, s, 1)
         
         Returns:
             torch.Tensor: Output tensor of shape (b, num_classes)
         """
-        b = x.shape[0]
-        t = x.shape[1]
-        s = x.shape[2]
-
-        # (b, t, s)
-        x = x.unsqueeze(-1)
-        # (b, t, s, 1)
         x = self.band_concat(x)
-        # (b, t, s, 2)
         x = self.spectral_embed(x)
-        # (b, t, s, dim_proj)
-        x = x + self.temporal_encode[:,1:t,:,:].expand_as(x)
-        # (b, t, s, dim_proj)
-        x = x.view(b, t*s, -1)
-        # (b, t*s, dim_proj)
-        x = torch.cat((self.rgr_token.expand(b, 1, -1), x), dim=1)
-        # (b, t*s+1, dim_proj)
-        x[:, [0], :] = x[:, [0], :] + self.temporal_encode[:,0,:,:].expand(b, 1, -1)
-        # (b, t*s+1, dim_proj)
+
+        cls_tokens = self.cls_token.expand(x.size(0), -1, -1)
+        x = torch.cat([cls_tokens, x], dim=1)
 
         for layer in self.layers:
             x = layer(x)
 
-        x = x[:, 0, :]
+        x = self.aggregate(x)
         x = self.head(x)
 
         return x
@@ -633,3 +638,45 @@ class TemporalTokenSpecTfEncoder(nn.Module):
                 nn.init.xavier_uniform_(module.weight)
                 if module.bias is not None:
                     nn.init.constant_(module.bias, 0)
+        
+        nn.init.trunc_normal_(self.cls_token, std=0.02)
+
+class SpecTfTokenDER(nn.Module):
+
+    def __init__(self,
+                 banddef: torch.Tensor,
+                 num_heads: int = 8,
+                 dim_proj: int = 64,
+                 dim_ff: int = 64,
+                 dropout: float = 0.1,
+                 agg: str = 'cls',
+                 use_residual: bool = False,
+                 num_layers: int = 1):
+
+        super().__init__()
+
+        self.encoder = SpecTfTokenEncoder(banddef,
+                                    dim_output=4,   # gamma, nu, alpha, beta
+                                    num_heads=num_heads,
+                                    dim_proj=dim_proj,
+                                    dim_ff=dim_ff,
+                                    dropout=dropout,
+                                    agg=agg,
+                                    use_residual=use_residual,
+                                    num_layers=num_layers)
+
+        self.evidential_head = DERHead()
+
+    def forward(self, x: torch.Tensor):
+        """SpecTfEvidential forward pass.
+        
+        Args:
+            x (torch.Tensor): Input tensor of shape (b, s, 1)
+        
+        Returns:
+            torch.Tensor: Output tensor of shape (b, 4)
+        """
+        x = self.encoder(x)
+        x = self.evidential_head(x)
+
+        return x

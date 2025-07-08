@@ -39,20 +39,23 @@ Here's an overview of the key files and directories in this repository:
 | **`datasets/`** | Descriptions and definitions for ML-ready datasets used for training and validation. |
 | **`evaluation/`** | Scripts to evaluate the model with the test dataset and produce performance metrics. |
 | **`comparison_models/`** | Scripts to reproduce the GBT and ANN comparison models from the paper. |
+| **`deploy/`** | Scripts to deploy the trained model for inference. |
+| **`weights/`** | Holds the set of trained, versioned model weights. |
 
 ---
 
 ### **Key Files**
 | File | Description |
 |------|------------|
-| **`dataset.py`** | PyTorch dataloader for ML-ready datasets and EMIT scene rasters. |
+| **`../spectf/dataset.py`** | PyTorch dataloader for ML-ready datasets and EMIT scene rasters. |
 | **`deploy/deploy_pt.py`** | Primary script to produce EMIT Cloud Masks. See [Usage](#Usage) for details. |
 | **`irr.npy`** | Solar irradiance data for Top-of-Atmosphere calculations. |
-| **`model.py`** | SpecTf model architecture definition in PyTorch. |
+| **`../spectf/model.py`** | SpecTf model architecture definition in PyTorch. |
 | **`toa.py`** | Helper script for calculating the Top-of-Atmosphere Reflectance in-memory. |
 | **`train.py`** | Training script to retrain/reproduce the SpecTf Cloud model. See [Usage](#Usage) for details. |
 | **`spectf_cloud_config.yml`** | Plaintext definition of model architecture parameters. |
-| **`weights.pt`** | Pretrained SpecTf model weights. |
+| **`weights/current.pt`** | Pretrained SpecTf model weights for the latest model. |
+| **`weights/v0.0.1/weights.pt`** | SpecTf model weights for the [published paper model](https://www.pnas.org/doi/epdf/10.1073/pnas.2502903122). |
 
 ---
 
@@ -130,7 +133,7 @@ $ spectf-cloud deploy-pt -h
 │                            [default: -1]                                                                             │
 │ --arch-spec       FILE     Filepath to model architecture YAML specification. [default: spectf_cloud_config.yml]     │
 │ --irradiance      FILE     Filepath to irradiance numpy file. [default: irr.npy]                                     │
-│ --weights         FILE     Filepath to trained model weights. [default: weights.pt]                                  │
+│ --weights         FILE     Filepath to trained model weights. [default: weights/current.pt]                          │
 │ --proba                    Output probability map instead of binary cloud mask.                                      │
 │ --keep-bands               Keep all bands in the spectra (use for non-EMIT data).                                    │
 │ --help        -h           Show this message and exit.                                                               │

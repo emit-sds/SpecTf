@@ -30,7 +30,7 @@ install()
 @click.option(
     "--weights",
     type=click.Path(exists=True, dir_okay=False),
-    default=get_abs_fp("weights.pt"),
+    default=get_abs_fp("weights/current.pt"),
 )
 @click.option(
     "--arch-file",

@@ -116,7 +116,7 @@ logging.basicConfig(
 )
 @click.option(
     "--threshold",
-    default=0.52,
+    default=0.51,
     type=float,
     show_default=True,
     help="Threshold for cloud classification.",

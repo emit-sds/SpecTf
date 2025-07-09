@@ -24,13 +24,11 @@ Check out the docs [here](https://github.com/emit-sds/SpecTf/blob/dev/spectf_clo
 ## Publications
 ### SpecTf: Transformers Enable Data-Driven Imaging Spectroscopy Cloud Detection
 
-Jake H. Lee, Michael Kiper, David R. Thompson, Philip G. Brodrick. *In Review* 
-
-Preprint: https://arxiv.org/abs/2501.04916
+J. H. Lee, M. Kiper, D. R. Thompson, & P.G. Brodrick, Proc. Natl. Acad. Sci. U.S.A. 122 (27) e2502903122, https://doi.org/10.1073/pnas.2502903122 (2025).
 
 For details see the [cloud directory](https://github.com/emit-sds/SpecTf/tree/dev/spectf_cloud)
 
-## Envrionment Variables
+## Environment Variables
 This section is to provide a list of all of the envrionment variables related to this package and how they impact the functional behavior.
 
 ### SpecTf

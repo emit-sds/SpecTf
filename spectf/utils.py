@@ -42,6 +42,30 @@ def get_date(fid:str) -> str:
     """ Get the date string from full FID """
     return fid.split('_')[0].split('t')[1]
 
+def envi_header(inputpath):
+    """
+    https://github.com/emit-sds/emit-utils/blob/develop/emit_utils/file_checks.py
+    Convert a envi binary/header path to a header, handling extensions
+    Args:
+        inputpath: path to envi binary file
+    Returns:
+        str: the header file associated with the input reference.
+
+    """
+    if op.splitext(inputpath)[-1] == '.img' or op.splitext(inputpath)[-1] == '.dat' or op.splitext(inputpath)[-1] == '.raw':
+        # headers could be at either filename.img.hdr or filename.hdr.  Check both, return the one that exists if it
+        # does, if not return the latter (new file creation presumed).
+        hdrfile = op.splitext(inputpath)[0] + '.hdr'
+        if op.isfile(hdrfile):
+            return hdrfile
+        elif op.isfile(inputpath + '.hdr'):
+            return inputpath + '.hdr'
+        return hdrfile
+    elif op.splitext(inputpath)[-1] == '.hdr':
+        return inputpath
+    else:
+        return inputpath + '.hdr'
+
 def drop_bands(
         spectra: np.ndarray, 
         banddef: np.ndarray, 

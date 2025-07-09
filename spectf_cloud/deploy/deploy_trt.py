@@ -88,7 +88,7 @@ logging.basicConfig(
 )
 @click.option(
     "--engine",
-    default=DEFAULT_DIR/"deploy/model.engine",
+    default=DEFAULT_DIR/"weights/current.engine",
     type=click.Path(exists=True, dir_okay=False),
     show_default=True,
     help="Filepath to TensoRT model engine.",

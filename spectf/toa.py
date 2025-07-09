@@ -20,8 +20,8 @@ def l1b_to_toa_arr(rdnfp: str, obsfp: str, irrfp: str):
     Converts Level 1b radiance data to top-of-atmosphere (TOA) reflectance.
 
     Args:
-        rdnfp (str): File path to the radiance data (L1b product).
-        obsfp (str): File path to the observation data (L1b product).
+        rdnfp (str): File path to the radiance data (L1b product .hdr).
+        obsfp (str): File path to the observation data (L1b product .hdr).
         irrfp (str): File path to the irradiance data (.npy).
 
     Returns:

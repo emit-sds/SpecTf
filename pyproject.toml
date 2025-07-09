@@ -33,8 +33,11 @@ spectf-cloud = "spectf_cloud.cli:main"
 
 [project.optional-dependencies]
 deploy-runtime = [
-  "tensorrt>=10.9.0",
+  "tensorrt==10.9.0.34",
   "pycuda>=2025",
+]
+make-onnx = [
+  "onnx>=1.18.0",
 ]
 
 [build-system]

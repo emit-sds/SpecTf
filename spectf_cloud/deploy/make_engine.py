@@ -19,7 +19,7 @@ install()
 )
 @click.option(
     "--onnx-fp",
-    default=get_abs_fp("model_no_bandcat_bf16"),
+    default=get_abs_fp("weights/current.onnx"),
     type=click.Path(exists=True, dir_okay=False),
     required=True,
 )

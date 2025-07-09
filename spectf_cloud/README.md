@@ -1,8 +1,8 @@
 # SpecTf: Transformers Enable Data-Driven Imaging Spectroscopy Cloud Detection
 
-Jake H. Lee, Michael Kiper, David R. Thompson, Philip G. Brodrick. *In Review.*
-
-Preprint: https://arxiv.org/abs/2501.04916
+Jake H. Lee, Michael Kiper, David R. Thompson, Philip G. Brodrick
+Proceedings of the National Academy of Sciences of the United States of America
+122 (27) e2502903122, https://doi.org/10.1073/pnas.2502903122 (2025).
 
 <img src="figures/fig1.png" width="50%">
 
@@ -39,20 +39,23 @@ Here's an overview of the key files and directories in this repository:
 | **`datasets/`** | Descriptions and definitions for ML-ready datasets used for training and validation. |
 | **`evaluation/`** | Scripts to evaluate the model with the test dataset and produce performance metrics. |
 | **`comparison_models/`** | Scripts to reproduce the GBT and ANN comparison models from the paper. |
+| **`deploy/`** | Scripts to deploy the trained model for inference. |
+| **`weights/`** | Holds the set of trained, versioned model weights. |
 
 ---
 
 ### **Key Files**
 | File | Description |
 |------|------------|
-| **`dataset.py`** | PyTorch dataloader for ML-ready datasets and EMIT scene rasters. |
+| **`../spectf/dataset.py`** | PyTorch dataloader for ML-ready datasets and EMIT scene rasters. |
 | **`deploy/deploy_pt.py`** | Primary script to produce EMIT Cloud Masks. See [Usage](#Usage) for details. |
 | **`irr.npy`** | Solar irradiance data for Top-of-Atmosphere calculations. |
-| **`model.py`** | SpecTf model architecture definition in PyTorch. |
+| **`../spectf/model.py`** | SpecTf model architecture definition in PyTorch. |
 | **`toa.py`** | Helper script for calculating the Top-of-Atmosphere Reflectance in-memory. |
 | **`train.py`** | Training script to retrain/reproduce the SpecTf Cloud model. See [Usage](#Usage) for details. |
 | **`spectf_cloud_config.yml`** | Plaintext definition of model architecture parameters. |
-| **`weights.pt`** | Pretrained SpecTf model weights. |
+| **`weights/current.pt`** | Pretrained SpecTf model weights for the latest model. |
+| **`weights/v0.0.1/weights.pt`** | SpecTf model weights for the [published paper model](https://www.pnas.org/doi/epdf/10.1073/pnas.2502903122). |
 
 ---
 
@@ -83,21 +86,25 @@ Within each of these datasets, there the following fields:
 At any point, you can navigate the CLI with the `-h` `--help` flags 
 ```
 $ spectf-cloud -h
+                                                                                
+ Usage: spectf-cloud [OPTIONS] COMMAND [ARGS]...                                
+                                                                                
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --version        Display the current SpecTf version.                         │
+│ --help     -h    Show this message and exit.                                 │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭─ Commands ───────────────────────────────────────────────────────────────────╮
+│ cloud-eval        Evaluation commands for SpecTf and L2A Baseline.           │
+│ deploy-pt         Produce a SpecTf transformer-generated cloud mask using    │
+│                   PyTorch runtime.                                           │
+│ deploy-trt        Produce a SpecTf transformer-generated cloud mask using    │
+│                   the TensorRT engine.                                       │
+│ train             Train the SpecTf Hyperspectral Transformer Model.          │
+│ train-comparison  Training commands for the ResNet and XGBoost comparison    │
+│                   models.                                                    │
+│ tui               Open Textual TUI.                                          │
+╰──────────────────────────────────────────────────────────────────────────────╯
 
- Usage: spectf-cloud [OPTIONS] COMMAND [ARGS]...
-
-╭─ Options ─────────────────────────────────────────────────────────────────────────────────────────────╮
-│ --version        Display the current SpecTf version.                                                  │
-│ --help     -h    Show this message and exit.                                                          │
-╰───────────────────────────────────────────────────────────────────────────────────────────────────────╯
-╭─ Commands ────────────────────────────────────────────────────────────────────────────────────────────╮
-│ cloud-eval             Evaluation commands for SpecTf and L2A Baseline.                               │
-│ deploy-pt              Produce a SpecTf transformer-generated cloud mask using PyTorch runtime.       │
-│ deploy-trt             Produce a SpecTf transformer-generated cloud mask using the TensorRT engine.   │
-│ train                  Train the SpecTf Hyperspectral Transformer Model.                              │
-│ train-comparison       Training commands for the ResNet and XGBoost comparison models.                │
-│ tui                    Open Textual TUI.                                                              │
-╰───────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
 ### 🌈 Using `SpecTf Cloud` to cloud mask your EMIT Scene ☁️
@@ -118,23 +125,34 @@ $ which spectf-cloud
 
 ```
 $ spectf-cloud deploy-pt -h
-
- Usage: spectf-cloud deploy-pt [OPTIONS] OUTFP OBSFP RDNFP
-
- Produce a SpecTf transformer-generated cloud mask.
-
-╭─ Options ────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ --threshold       FLOAT    Threshold for cloud classification. [default: 0.52]                                       │
-│ --device          INTEGER  Device specification for PyTorch (-1 for CPU, 0+ for GPU, MPS if                          │
-│                            available).                                                                               │
-│                            [default: -1]                                                                             │
-│ --arch-spec       FILE     Filepath to model architecture YAML specification. [default: spectf_cloud_config.yml]     │
-│ --irradiance      FILE     Filepath to irradiance numpy file. [default: irr.npy]                                     │
-│ --weights         FILE     Filepath to trained model weights. [default: weights.pt]                                  │
-│ --proba                    Output probability map instead of binary cloud mask.                                      │
-│ --keep-bands               Keep all bands in the spectra (use for non-EMIT data).                                    │
-│ --help        -h           Show this message and exit.                                                               │
-╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+                                                                                
+ Usage: spectf-cloud deploy-pt [OPTIONS] OUTFP OBSFP RDNFP                      
+                                                                                
+ Produce a SpecTf transformer-generated cloud mask using PyTorch runtime.       
+ OUTFP is where the output file will be written (GeoTIFF .tif) RDNFP is the     
+ filepath of the radiance data (ENVI .img) OBSFP is the filepath of the         
+ observation data (ENVI .img)                                                   
+                                                                                
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --threshold       FLOAT    Threshold for cloud classification.               │
+│                            [default: 0.51]                                   │
+│ --device          INTEGER  Device specification for PyTorch (-1 for CPU, 0+  │
+│                            for GPU, MPS if available).                       │
+│                            [default: -1]                                     │
+│ --arch-spec       FILE     Filepath to model architecture YAML               │
+│                            specification. This file also needs to contain    │
+│                            the bands to remove                               │
+│                            [default: SpecTf/spectf_cloud/spectf_cloud_confi… |
+│ --irradiance      FILE     Filepath to irradiance numpy file.                │
+│                            [default: SpecTf/spectf_cloud/irr.npy]            │
+│ --weights         FILE     Filepath to latest trained model weights.         │
+│                            [default: SpecTf/spectf_cloud/weights/current.pt  │
+│ --proba                    Output probability map instead of binary cloud    │
+│                            mask.                                             │
+│ --keep-bands               Keep all bands in the spectra (use for non-EMIT   │
+│                            data).                                            │
+│ --help        -h           Show this message and exit.                       │
+╰──────────────────────────────────────────────────────────────────────────────╯
 ```
 
 Example:

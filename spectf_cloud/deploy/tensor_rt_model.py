@@ -1,7 +1,11 @@
+from importlib.util import find_spec
+
 import torch
 from torch import nn
 from spectf.model import SpectralEmbed, EncoderLayer
-from spectf_cloud.deploy import __SUPPORTS_TRT__
+
+_deps = ['tensorrt', 'pycuda']
+__SUPPORTS_TRT__ = all(find_spec(d) for d in _deps)
 
 class SpecTfEncoderTensorRT(nn.Module):
     """This model just takes out the band concatenation step for the TensorRT runtime network"""

@@ -84,10 +84,10 @@ logging.basicConfig(
 )
 @click.option(
     "--weights",
-    default=DEFAULT_DIR/"weights.pt",
+    default=DEFAULT_DIR/"weights/current.pt",
     type=click.Path(exists=True, dir_okay=False),
     show_default=True,
-    help="Filepath to trained model weights.",
+    help="Filepath to latest trained model weights.",
     envvar=f"{ENV_VAR_PREFIX}WEIGHTS",
 )
 @click.option(
@@ -116,7 +116,7 @@ logging.basicConfig(
 )
 @click.option(
     "--threshold",
-    default=0.52,
+    default=0.51,
     type=float,
     show_default=True,
     help="Threshold for cloud classification.",
@@ -124,7 +124,12 @@ logging.basicConfig(
 )
 @spectf_cloud.command(
     add_help_option=True,
-    help="Produce a SpecTf transformer-generated cloud mask using PyTorch runtime."
+    help="""Produce a SpecTf transformer-generated cloud mask using PyTorch runtime.
+    
+    OUTFP is where the output file will be written (GeoTIFF .tif)
+    RDNFP is the filepath of the radiance data (ENVI .img)
+    OBSFP is the filepath of the observation data (ENVI .img)
+    """
 )
 def deploy_pt(
     rdnfp,

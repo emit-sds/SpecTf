@@ -23,13 +23,11 @@ from torch.utils.data import DataLoader
 from spectf.model import BandConcat
 from spectf.dataset import RasterDatasetTOA
 from spectf_cloud.cli import spectf_cloud, MAIN_CALL_ERR_MSG, DEFAULT_DIR
-from spectf_cloud.deploy import __SUPPORTS_TRT__
 
-if __SUPPORTS_TRT__:
-    from spectf_cloud.deploy.tensor_rt_model import load_model_network_engine
-    import tensorrt as trt
-    import pycuda.driver as cuda
-    import pycuda.autoinit
+from spectf_cloud.deploy.tensor_rt_model import load_model_network_engine
+import tensorrt as trt
+import pycuda.driver as cuda
+import pycuda.autoinit
 
 PRECISION = torch.bfloat16
 ENV_VAR_PREFIX = 'SPECTF_DEPLOY_'
@@ -90,7 +88,7 @@ logging.basicConfig(
 )
 @click.option(
     "--engine",
-    default=DEFAULT_DIR/"deploy/model.engine",
+    default=DEFAULT_DIR/"weights/current.engine",
     type=click.Path(exists=True, dir_okay=False),
     show_default=True,
     help="Filepath to TensoRT model engine.",
@@ -114,7 +112,7 @@ logging.basicConfig(
 )
 @click.option(
     "--threshold",
-    default=0.52,
+    default=0.51,
     type=float,
     show_default=True,
     help="Threshold for cloud classification.",
@@ -122,7 +120,12 @@ logging.basicConfig(
 )
 @spectf_cloud.command(
     add_help_option=True,
-    help="Produce a SpecTf transformer-generated cloud mask using the TensorRT engine."
+    help="""Produce a SpecTf transformer-generated cloud mask using the TensorRT engine.
+    
+    OUTFP is where the output file will be written (GeoTIFF .tif)
+    RDNFP is the filepath of the radiance data (ENVI .img)
+    OBSFP is the filepath of the observation data (ENVI .img)
+    """
 )
 def deploy_trt(
     rdnfp,

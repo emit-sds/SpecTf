@@ -1,3 +1,5 @@
+# v0.0.1
+
 ## Files:
 - weights.pt
     - md5sum: c54fe5ef078b44182d3cc626008959ab
@@ -6,13 +8,10 @@
 - model.engine
     - md5sum: 439cf0d5aa33d64b2340c74527f16aef 
 
-## Datasets:
-- [labelbox](https://zenodo.org/records/15833303/files/spectf_cloud_lbox.hdf5?download=1)
-    - samples:
-- [mmgis](https://zenodo.org/records/15833303/files/spectf_cloud_mmgis.hdf5?download=1)
-    - samples:
+## Training Datasets:
+_The following links direct to Zenodo downloads._
 
-## Test Best-F1 Scores:
-| Model  | **Lbox + MMGISv1** | Thresh |
-| ------ | ------------------ | ------ |
-| v0.0.1 | 0.9519             | 0.52   |
+- [labelbox](https://zenodo.org/records/15833303/files/spectf_cloud_lbox.hdf5?download=1)
+    - 4.1 GB, 1,841,641 spectra
+- [mmgis](https://zenodo.org/records/15833303/files/spectf_cloud_mmgis.hdf5?download=1)
+    - 3.9 GB, 1,733,801 spectra

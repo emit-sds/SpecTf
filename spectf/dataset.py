@@ -6,6 +6,7 @@ Apache License, Version 2.0
 Author: Jake Lee, jake.h.lee@jpl.nasa.gov
 """
 
+import os
 from collections.abc import Callable
 from typing import List
 
@@ -14,7 +15,7 @@ import torch
 from torch.utils.data import Dataset
 
 from spectf.toa import l1b_to_toa_arr
-from spectf.utils import drop_bands
+from spectf.utils import drop_bands, envi_header
 
 
 class RasterDatasetTOA(Dataset):
@@ -22,29 +23,26 @@ class RasterDatasetTOA(Dataset):
     reflectance data derived from L1b rdn.
 
     Attributes:
-        shape (tuple): The shape of the L1b rdn raster.
-        toa_arr (ndarray): The top-of-atmosphere reflectance data,
-                           reshaped as a list of pixels.
-        banddef (np.array): The band wavelengths corresponding to the 
-                            `toa_arr` indices.
+        shape (tuple): Shape of the L1b rdn raster.
+        toa_arr (ndarray): TOA reflectance data reshaped as a list of pixels.
+        banddef (np.array): Band wavelengths corresponding to `toa_arr` indices.
         metadata (dict): Metadata of the original raster image.
-        transform (callable, optional): Transformations or normalizations 
-                                        for each pixel spectra.
+        transform (callable, optional): Transformations for each pixel spectra.
 
-    The class relies on the `l1b_to_toa_arr` function to process the input data
-    files and generate the TOA reflectance data.
+    Relies on the `l1b_to_toa_arr` function to process input data files and generate
+    TOA reflectance data.
     """
 
     def __init__(
             self, 
             rdnfp: str, 
             obsfp: str, 
-            irrfp:str,
-            rm_bands:List[List[int]]=None,
+            irrfp: str,
+            rm_bands: List[List[int]]=None,
             transform: Callable = None, 
             keep_bands: bool = False, 
             dtype: torch.dtype = torch.float,
-            device:torch.device = None,
+            device: torch.device = None,
         ):
         """ Initialize the RasterDatasetTOA Dataset object.
         Args:
@@ -57,7 +55,15 @@ class RasterDatasetTOA(Dataset):
         """
         super().__init__()
 
-        self.toa_arr, self.banddef, self.metadata = l1b_to_toa_arr(rdnfp, obsfp, irrfp)
+        # Raster files
+        self.rdnhdr = envi_header(rdnfp)
+        self.obshdr = envi_header(obsfp)
+
+        assert os.path.exists(self.rdnhdr), f"Header file {self.rdnhdr} does not exist."
+        assert os.path.exists(self.obshdr), f"Header file {self.obshdr} does not exist."
+        assert os.path.exists(irrfp), f"Irradiance file {irrfp} does not exist."
+
+        self.toa_arr, self.banddef, self.metadata = l1b_to_toa_arr(self.rdnhdr, self.obshdr, irrfp)
         self.shape = self.toa_arr.shape
         self.toa_arr = self.toa_arr.reshape((self.shape[0] * self.shape[1],
                                              self.shape[2]))

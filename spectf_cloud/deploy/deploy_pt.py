@@ -114,7 +114,12 @@ logging.basicConfig(
 )
 @spectf_cloud.command(
     add_help_option=True,
-    help="Produce a SpecTf transformer-generated cloud mask using PyTorch runtime."
+    help="""Produce a SpecTf transformer-generated cloud mask using PyTorch runtime.
+    
+    OUTFP is where the output file will be written (GeoTIFF .tif)
+    RDNFP is the filepath of the radiance data (ENVI .img)
+    OBSFP is the filepath of the observation data (ENVI .img)
+    """
 )
 def deploy_pt(
     rdnfp,

@@ -80,7 +80,7 @@ logging.basicConfig(
 )
 @click.option(
     "--engine",
-    default=DEFAULT_DIR/"deploy/model.engine",
+    default=DEFAULT_DIR/"weights/current.engine",
     type=click.Path(exists=True, dir_okay=False),
     show_default=True,
     help="Filepath to TensoRT model engine.",
@@ -112,7 +112,12 @@ logging.basicConfig(
 )
 @spectf_cloud.command(
     add_help_option=True,
-    help="Produce a SpecTf transformer-generated cloud mask using the TensorRT engine."
+    help="""Produce a SpecTf transformer-generated cloud mask using the TensorRT engine.
+    
+    OUTFP is where the output file will be written (GeoTIFF .tif)
+    RDNFP is the filepath of the radiance data (ENVI .img)
+    OBSFP is the filepath of the observation data (ENVI .img)
+    """
 )
 def deploy_trt(
     rdnfp,

@@ -83,7 +83,7 @@ torch.autograd.set_detect_anomaly(True)
 )
 @click.option(
     "--thresh",
-    default=0.52,
+    default=0.51,
     type=float,
     show_default=True,
     help="Cloud classification posterior score threshold.",

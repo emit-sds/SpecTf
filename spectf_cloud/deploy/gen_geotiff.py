@@ -30,7 +30,7 @@ def make_geotiff(cloud_mask: np.ndarray, dataset_shape: tuple, outfp: str, proba
         ds.GetRasterBand(1).SetNoDataValue(PROBA_NO_DATA_VAL)
         
         sp = str(outfp).split('.')
-        sp[-1] = '_proba'+sp[-1]
+        sp[-1] = 'prob.'+sp[-1]
         _ = tiff_driver.CreateCopy('.'.join(sp), ds, options=opts)
 
         logging.info("Probability cloud mask saved to %s", '.'.join(sp))

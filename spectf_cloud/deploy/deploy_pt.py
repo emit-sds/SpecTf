@@ -14,7 +14,6 @@ import time
 import yaml
 import rich_click as click
 import numpy as np
-from osgeo import gdal
 
 import torch
 from torch import nn
@@ -22,21 +21,12 @@ from torch.utils.data import DataLoader
 
 from spectf.model import SpecTfEncoder
 from spectf.dataset import RasterDatasetTOA
+from spectf_cloud.deploy.gen_geotiff import make_geotiff
 from spectf_cloud.cli import spectf_cloud, MAIN_CALL_ERR_MSG, DEFAULT_DIR
 
 PRECISION = torch.bfloat16
 ENV_VAR_PREFIX = 'SPECTF_DEPLOY_'
 
-
-numpy_to_gdal = {
-    np.dtype(np.float64): 7,
-    np.dtype(np.float32): 6,
-    np.dtype(np.int32): 5,
-    np.dtype(np.uint32): 4,
-    np.dtype(np.int16): 3,
-    np.dtype(np.uint16): 2,
-    np.dtype(np.uint8): 1,
-}
 
 # TODO: Refactor this into the CLI
 # Configure logging
@@ -79,7 +69,7 @@ logging.basicConfig(
     "--proba",
     is_flag=True,
     default=False,
-    help="Output probability map instead of binary cloud mask.",
+    help="Output probability map with the binary cloud mask.",
     envvar=f"{ENV_VAR_PREFIX}PROBA",
 )
 @click.option(
@@ -218,33 +208,7 @@ def deploy_pt(
 
     logging.info("Inference complete.")
 
-    # Account for NODATA values and threshold
-    if proba:
-        cloud_mask[np.isnan(cloud_mask)] = -9999
-    else:
-        cloud_mask[cloud_mask < threshold] = 0
-        cloud_mask[cloud_mask > 0] = 1
-        cloud_mask[np.isnan(cloud_mask)] = 255
-        cloud_mask = cloud_mask.astype(np.uint8)
-
-
-    # Reshape into input shape
-    cloud_mask = cloud_mask.reshape((dataset.shape[0], dataset.shape[1], 1))
-
-    driver = gdal.GetDriverByName('MEM')
-    ds = driver.Create('', cloud_mask.shape[1], cloud_mask.shape[0], cloud_mask.shape[2], numpy_to_gdal[cloud_mask.dtype])
-    ds.GetRasterBand(1).WriteArray(cloud_mask[:,:,0])
-
-    # Set NODATA value
-    if proba:
-        ds.GetRasterBand(1).SetNoDataValue(-9999)
-    else:
-        ds.GetRasterBand(1).SetNoDataValue(255)
-
-    tiff_driver = gdal.GetDriverByName('GTiff')
-    _ = tiff_driver.CreateCopy(outfp, ds, options=['COMPRESS=LZW', 'COPY_SRC_OVERVIEWS=YES', 'TILED=YES', 'BLOCKXSIZE=256', 'BLOCKYSIZE=256'])
-
-    logging.info("Cloud mask saved to %s", outfp)
+    make_geotiff(cloud_mask, dataset.shape, outfp, proba, threshold)
 
 if __name__ == "__main__":
     print(MAIN_CALL_ERR_MSG % "deploy-pt")

@@ -1,6 +1,7 @@
 import numpy as np
 from osgeo import gdal
 import logging
+from pathlib import Path
 
 BINARY_NO_DATA_VAL = 255
 PROBA_NO_DATA_VAL = -9999
@@ -29,11 +30,11 @@ def make_geotiff(cloud_mask: np.ndarray, dataset_shape: tuple, outfp: str, proba
         ds.GetRasterBand(1).WriteArray(cloud_mask[:,:,0])    
         ds.GetRasterBand(1).SetNoDataValue(PROBA_NO_DATA_VAL)
         
-        sp = str(outfp).split('.')
-        sp[-1] = 'prob.'+sp[-1]
-        _ = tiff_driver.CreateCopy('.'.join(sp), ds, options=opts)
+        _op = Path(outfp)
+        _op_s = str(_op.with_name(f"{_op.stem}_prob{_op.suffix}"))
+        _ = tiff_driver.CreateCopy(_op_s, ds, options=opts)
 
-        logging.info("Probability cloud mask saved to %s", '.'.join(sp))
+        logging.info("Probability cloud mask saved to %s", _op_s)
         cloud_mask = cloud_mask.reshape(old_shape)
 
     cloud_mask[cloud_mask < threshold] = 0

@@ -22,6 +22,7 @@ from torch.utils.data import DataLoader
 
 from spectf.model import BandConcat
 from spectf.dataset import RasterDatasetTOA
+from spectf_cloud.deploy.gen_geotiff import make_geotiff
 from spectf_cloud.cli import spectf_cloud, MAIN_CALL_ERR_MSG, DEFAULT_DIR
 
 from spectf_cloud.deploy.tensor_rt_model import load_model_network_engine
@@ -32,15 +33,6 @@ import pycuda.autoinit
 PRECISION = torch.bfloat16
 ENV_VAR_PREFIX = 'SPECTF_DEPLOY_'
 
-numpy_to_gdal = {
-    np.dtype(np.float64): 7,
-    np.dtype(np.float32): 6,
-    np.dtype(np.int32): 5,
-    np.dtype(np.uint32): 4,
-    np.dtype(np.int16): 3,
-    np.dtype(np.uint16): 2,
-    np.dtype(np.uint8): 1,
-}
 
 # TODO: Refactor this into the CLI
 # Configure logging
@@ -243,34 +235,9 @@ def deploy_trt(
 
     logging.info("Inference complete.")
 
-    # Account for NODATA values and threshold
-    if proba:
-        cloud_mask[np.isnan(cloud_mask)] = -9999
-    else:
-        cloud_mask[cloud_mask < threshold] = 0
-        cloud_mask[cloud_mask > 0] = 1
-        cloud_mask[np.isnan(cloud_mask)] = 255
-        cloud_mask = cloud_mask.astype(np.uint8)
+    make_geotiff(cloud_mask, dataset.shape, outfp, proba, threshold)
 
-    # Reshape into input shape
-    cloud_mask = cloud_mask.reshape((dataset.shape[0], dataset.shape[1], 1))
-
-    driver = gdal.GetDriverByName('MEM')
-    ds = driver.Create('', cloud_mask.shape[1], cloud_mask.shape[0], cloud_mask.shape[2], numpy_to_gdal[cloud_mask.dtype])
-    ds.GetRasterBand(1).WriteArray(cloud_mask[:,:,0])
-
-    # Set NODATA value
-    if proba:
-        ds.GetRasterBand(1).SetNoDataValue(-9999)
-    else:
-        ds.GetRasterBand(1).SetNoDataValue(255)
-
-    tiff_driver = gdal.GetDriverByName('GTiff')
-    _ = tiff_driver.CreateCopy(outfp, ds, options=['COMPRESS=LZW', 'COPY_SRC_OVERVIEWS=YES', 'TILED=YES', 'BLOCKXSIZE=256', 'BLOCKYSIZE=256'])
-
-    logging.info("Cloud mask saved to %s", outfp)
-
-def pad_batch(b: torch.tensor, target_bsz:int):    
+def pad_batch(b: torch.Tensor, target_bsz:int):    
     # Pad w/ zeros
     padded_shape = (target_bsz,) + b.shape[1:]
     padded_batch = torch.zeros(

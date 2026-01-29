@@ -166,7 +166,10 @@ def deploy_pt(
     if outfp is not None:
         make_geotiff(cloud_mask, dataset.shape, outfp, proba, threshold)
 
-    return cloud_mask
+    # reshape back to original image shape (rows, cols) or (cols, rows)
+    cloud_mask_reshaped = cloud_mask.reshape(dataset.shape[0], dataset.shape[1])
+
+    return cloud_mask_reshaped
 
 
 def deploy_pt_from_toa(
@@ -219,7 +222,9 @@ def deploy_pt_from_toa(
     if outfp is not None:
         make_geotiff(cloud_mask, dataset.shape, outfp, proba, threshold)
 
-    return cloud_mask
+    # reshape back to original image shape (rows, cols) or (cols, rows)
+    cloud_mask_reshaped = cloud_mask.reshape(dataset.shape[0], dataset.shape[1])
+    return cloud_mask_reshaped
 
 
 def initialize_pt_model(
@@ -303,7 +308,7 @@ def run_pt_inference_model(
             cloud_mask[curr:nxt] = proba_
 
             curr = nxt
-            if (i + 1) % 100 == 0:
+            if i % 100 == 0:
                 end = time.time()
                 logging.info(
                     "Iter %d: %.2f min remain.",

@@ -37,7 +37,9 @@ class ToaDataset(Dataset):
     toa_arr = None
     transform = None
     metadata = None
-    shape = None
+    shape = None # NOTE this is the dataset shape before reshaping to (num_pixels, num_bands)
+    # This shape should be in order of (rows, cols, bands) or (cols, rows, bands)
+
     banddef = None
 
     def init_class_data(
@@ -159,6 +161,7 @@ class XarrayDatasetTOA(ToaDataset):
         super().__init__()
 
         self.toa_arr = toa.values
+        self.banddef = toa.banddef.values
         self.init_class_data(rm_bands, transform, dtype, device)
 
 

@@ -11,10 +11,12 @@ This version of the dployment script quantizes the model, and runs it with Nvidi
 import logging
 import time
 
-import yaml
 import rich_click as click
 import numpy as np
 from osgeo import gdal
+
+from spectf_cloud.deploy.infra_setup import open_model_arch_spec
+
 gdal.UseExceptions()
 
 import torch
@@ -28,7 +30,6 @@ from spectf_cloud.cli import spectf_cloud, MAIN_CALL_ERR_MSG, DEFAULT_DIR
 from spectf_cloud.deploy.tensor_rt_model import load_model_network_engine
 import tensorrt as trt
 import pycuda.driver as cuda
-import pycuda.autoinit
 
 PRECISION = torch.bfloat16
 ENV_VAR_PREFIX = 'SPECTF_DEPLOY_'
@@ -61,7 +62,8 @@ logging.basicConfig(
 @click.argument(
     "outfp",
     type=click.Path(),
-    required=True,
+    default=None,
+    help="Output filepath for the cloud mask GeoTIFF. if no path is provided - no file will be written.",
     envvar=f"{ENV_VAR_PREFIX}OUTFP",
 )
 @click.option(
@@ -134,12 +136,8 @@ def deploy_trt(
     if not torch.cuda.is_available():
         raise RuntimeError("Cannot run the TensorRT runt time engine without a CUDA supported GPU.")
 
-    # Open model architecture specification from YAML file
-    with open(arch_spec, 'r', encoding='utf-8') as f:
-        spec = yaml.safe_load(f)
+    spec, device_ = open_model_arch_spec(arch_spec, device_specification="cuda")
     inference = spec['inference']
-    
-    device_ = torch.device("cuda")
 
     # Initialize dataset and dataloader
     dataset = RasterDatasetTOA(rdnfp, 
@@ -150,92 +148,13 @@ def deploy_trt(
                                keep_bands=keep_bands, 
                                dtype=PRECISION, 
                                device=device_)
-    banddef = torch.tensor(dataset.banddef, dtype=PRECISION).to(device_)
-    bc = BandConcat(banddef)
-    dataset.toa_arr = bc(dataset.toa_arr)
-    dataloader = DataLoader(dataset,
-                            batch_size=inference['batch'],
-                            shuffle=False,
-                            num_workers=inference['workers'])
 
-    # Define and initialize the model
-    engine = load_model_network_engine(engine)
-    context = engine.create_execution_context()
+    cloud_mask = run_trt_inference_model(dataset, engine, inference, device_)
 
-    ## Allocate buffers
-    input_name = None
-    expected_bsz = -1
-    for i in range(engine.num_io_tensors):
-        tensor_name = engine.get_tensor_name(i)
-        size = trt.volume(engine.get_tensor_shape(tensor_name))
-        
-        if engine.get_tensor_mode(tensor_name) == trt.TensorIOMode.INPUT:
-            input_name = tensor_name
-            expected_bsz = engine.get_tensor_shape(tensor_name)[0]
-        else:
-            host_ouput_buffer = cuda.pagelocked_empty(size, dtype=np.float16)
-            device_output_buffer = cuda.mem_alloc(host_ouput_buffer.nbytes)
+    if outfp is not None:
+        make_geotiff(cloud_mask, dataset.shape, outfp, proba, threshold)
 
-            context.set_tensor_address(tensor_name, int(device_output_buffer))
-    stream = cuda.Stream()
-
-    # Inference
-    
-    logging.info("Starting inference.")
-    cloud_mask = np.zeros((dataset.shape[0]*dataset.shape[1],)).astype(np.float32)
-    total_len = len(dataloader)
-    with torch.inference_mode():
-        curr = 0
-        start = time.time()
-        for i, batch in enumerate(dataloader):
-            # If the batch size is smaller than needed (happens for last batch), we neeed to pad it
-            original_pad_shape = -1
-            if inference['batch'] != batch.size(0):
-                original_pad_shape = batch.size(0)
-                batch = pad_batch(batch, inference['batch'])
-            if expected_bsz != -1:
-                assert batch.size(0) == expected_bsz, f"Got unsupported batch size. Got: {batch.shape(0)} | Need: {expected_bsz}"
-
-            # Create an input buffer
-            batch = batch.contiguous() # should be of shape: (bsz, n dims, 2 - for the spectra and index)
-            context.set_tensor_address(input_name, int(batch.data_ptr()))
-
-            # Execute inference
-            context.execute_async_v3(stream.handle)
-
-            out_gpu = torch.empty((batch.shape[0], 2), dtype=PRECISION, device=device_)
-            # Device->Device copy from device_output buffer into tensor
-            cuda.memcpy_dtod_async(
-                dest=out_gpu.data_ptr(),
-                src=device_output_buffer,
-                size=out_gpu.numel() * out_gpu.element_size(),
-                stream=stream
-            )
-            stream.synchronize()
-
-            # Perform softmax on the GPU - putting this here versus fusing with the trt network had no benefits
-            proba_gpu = torch.nn.functional.softmax(out_gpu.float(), dim=1)
-
-            # Bring the result back to CPU
-            proba_ = proba_gpu.to(dtype=torch.float32).cpu().detach().numpy()[:,1]
-
-            if original_pad_shape != -1:
-                nxt = curr+original_pad_shape
-                proba_ = proba_[:original_pad_shape]
-            else:
-                nxt = curr+batch.size(0)
-            
-            cloud_mask[curr:nxt] = proba_
-
-            curr = nxt
-            if (i+1) % 100 == 0:
-                end = time.time()
-                logging.info("Iter %d: %.2f min remain.", i, (((end-start)/100)*(total_len-i-1))/60)
-                start = time.time()
-
-    logging.info("Inference complete.")
-
-    make_geotiff(cloud_mask, dataset.shape, outfp, proba, threshold)
+    return cloud_mask
 
 def pad_batch(b: torch.Tensor, target_bsz:int):    
     # Pad w/ zeros
@@ -248,6 +167,102 @@ def pad_batch(b: torch.Tensor, target_bsz:int):
 
     padded_batch[:b.size(0)] = b
     return padded_batch
+
+def run_trt_inference_model(dataset, engine, inference, device_):
+    banddef = torch.tensor(dataset.banddef, dtype=PRECISION).to(device_)
+    bc = BandConcat(banddef)
+    dataset.toa_arr = bc(dataset.toa_arr)
+    dataloader = DataLoader(dataset,
+                            batch_size=inference['batch'],
+                            shuffle=False,
+                            num_workers=inference['workers'])
+
+    # Inference
+    dataset_shape = (dataset.shape[0] * dataset.shape[1],)
+
+    # Define and initialize the model
+    engine = load_model_network_engine(engine)
+    context = engine.create_execution_context()
+
+    ## Allocate buffers
+    input_name = None
+    expected_bsz = -1
+    for i in range(engine.num_io_tensors):
+        tensor_name = engine.get_tensor_name(i)
+        size = trt.volume(engine.get_tensor_shape(tensor_name))
+
+        if engine.get_tensor_mode(tensor_name) == trt.TensorIOMode.INPUT:
+            input_name = tensor_name
+            expected_bsz = engine.get_tensor_shape(tensor_name)[0]
+        else:
+            host_ouput_buffer = cuda.pagelocked_empty(size, dtype=np.float16)
+            device_output_buffer = cuda.mem_alloc(host_ouput_buffer.nbytes)
+
+            context.set_tensor_address(tensor_name, int(device_output_buffer))
+    stream = cuda.Stream()
+
+    logging.info("Starting inference.")
+    cloud_mask = np.zeros(dataset_shape).astype(np.float32)
+    total_len = len(dataloader)
+    with torch.inference_mode():
+        curr = 0
+        start = time.time()
+        for i, batch in enumerate(dataloader):
+            # If the batch size is smaller than needed (happens for last batch), we neeed to pad it
+            original_pad_shape = -1
+            if inference["batch"] != batch.size(0):
+                original_pad_shape = batch.size(0)
+                batch = pad_batch(batch, inference["batch"])
+            if expected_bsz != -1:
+                assert batch.size(0) == expected_bsz, (
+                    f"Got unsupported batch size. Got: {batch.shape(0)} | Need: {expected_bsz}"
+                )
+
+            # Create an input buffer
+            batch = (
+                batch.contiguous()
+            )  # should be of shape: (bsz, n dims, 2 - for the spectra and index)
+            context.set_tensor_address(input_name, int(batch.data_ptr()))
+
+            # Execute inference
+            context.execute_async_v3(stream.handle)
+
+            out_gpu = torch.empty((batch.shape[0], 2), dtype=PRECISION, device=device_)
+            # Device->Device copy from device_output buffer into tensor
+            cuda.memcpy_dtod_async(
+                dest=out_gpu.data_ptr(),
+                src=device_output_buffer,
+                size=out_gpu.numel() * out_gpu.element_size(),
+                stream=stream,
+            )
+            stream.synchronize()
+
+            # Perform softmax on the GPU - putting this here versus fusing with the trt network had no benefits
+            proba_gpu = torch.nn.functional.softmax(out_gpu.float(), dim=1)
+
+            # Bring the result back to CPU
+            proba_ = proba_gpu.to(dtype=torch.float32).cpu().detach().numpy()[:, 1]
+
+            if original_pad_shape != -1:
+                nxt = curr + original_pad_shape
+                proba_ = proba_[:original_pad_shape]
+            else:
+                nxt = curr + batch.size(0)
+
+            cloud_mask[curr:nxt] = proba_
+
+            curr = nxt
+            if (i + 1) % 100 == 0:
+                end = time.time()
+                logging.info(
+                    "Iter %d: %.2f min remain.",
+                    i,
+                    (((end - start) / 100) * (total_len - i - 1)) / 60,
+                )
+                start = time.time()
+
+    logging.info("Inference complete.")
+    return cloud_mask
 
 
 if __name__ == "__main__":

@@ -11,16 +11,17 @@ This version of the dployment script quantizes the model, and runs it with PyTor
 import logging
 import time
 
-import yaml
 import rich_click as click
 import numpy as np
 
 import torch
+from isofit.utils.template_construction import Pathnames
 from torch import nn
 from torch.utils.data import DataLoader
 
+from spectf_cloud.deploy.infra_setup import open_model_arch_spec
 from spectf.model import SpecTfEncoder
-from spectf.dataset import RasterDatasetTOA
+from spectf.dataset import RasterDatasetTOA, XarrayDatasetTOA, ToaDataset
 from spectf_cloud.deploy.gen_geotiff import make_geotiff
 from spectf_cloud.cli import spectf_cloud, MAIN_CALL_ERR_MSG, DEFAULT_DIR
 
@@ -55,7 +56,8 @@ logging.basicConfig(
 @click.argument(
     "outfp",
     type=click.Path(),
-    required=True,
+    default=None,
+    help="Output filepath for the cloud mask GeoTIFF. if no path is provided - no file will be written.",
     envvar=f"{ENV_VAR_PREFIX}OUTFP",
 )
 @click.option(
@@ -135,25 +137,15 @@ def deploy_pt(
 ):
     """Applies the SpecTf cloud screening model to an EMIT scene."""
 
-    # Open model architecture specification from YAML file
-    with open(arch_spec, 'r', encoding='utf-8') as f:
-        spec = yaml.safe_load(f)
-
-    arch = spec['architecture']
-    inference = spec['inference']
-
-    # Setup PyTorch device
-    if torch.cuda.is_available() and device != -1:
-        device_ = torch.device(f"cuda:{device}")
-        logging.info("Device is cuda:%s", device)
-    elif torch.backends.mps.is_available() and torch.backends.mps.is_built():
-        device_ = torch.device("mps") # Apple silicon
-        logging.info("Device is Apple MPS acceleration")
+    # Open model architecture specification from YAML file and Setup PyTorch device
+    if device !=-1:
+        device_specification = f"cuda:{device}"
     else:
-        device_ = torch.device("cpu")
-        logging.info("Device is CPU")
+        device_specification = "cpu"
 
-    # Initialize dataset and dataloader
+    spec, device_ = open_model_arch_spec(arch_spec, device_specification=device_specification)
+
+    # Initialize dataset
     dataset = RasterDatasetTOA(rdnfp, 
                                obsfp, 
                                irradiance, 
@@ -162,32 +154,133 @@ def deploy_pt(
                                keep_bands=keep_bands, 
                                dtype=PRECISION, 
                                device=device_)
-    dataloader = DataLoader(dataset,
-                            batch_size=inference['batch'],
-                            shuffle=False,
-                            num_workers=inference['workers'])
 
+    # Initialize and run inference
+    cloud_mask = run_pt_inference_model(dataset, spec, weights, device_)
+
+    if outfp is not None:
+        make_geotiff(cloud_mask, dataset.shape, outfp, proba, threshold)
+
+    return cloud_mask
+
+def deploy_pt_from_toa(
+    toa_dataset,
+    weights: str,
+    arch_spec: str,
+    proba: bool = False,
+    device: int = -1,
+    threshold: float = 0.51,
+    outfp: str | None = None,
+):
+    """
+    Applies the SpecTf cloud screening model to a top of atmosphere dataset.
+    Args:
+        toa_dataset: xr.Dataset xarray dataset containing TOA reflectance data.
+        proba: bool: Output probability map with the binary cloud mask, default False.
+        weights: str: Filepath to latest trained model weights.
+        arch_spec: str: Filepath to model architecture YAML specification.
+               This file also needs to contain the bands to remove (if desired)
+        device: int: Device specification for PyTorch (-1 for CPU, 0+ for GPU, MPS if available), default -1 (CPU).
+        threshold: float: Threshold for cloud classification, default 0.51.
+        outfp: str | None: Output filepath for the cloud mask GeoTIFF. if no path is provided - no file will be saved.
+
+    Returns:
+        cloud_mask: np.ndarray: The generated cloud mask (probability values).
+
+    """
+    # Open model architecture specification from YAML file and Setup PyTorch device
+    if device != -1:
+        device_specification = f"cuda:{device}"
+    else:
+        device_specification = "cpu"
+
+    spec, device_ = open_model_arch_spec(
+        arch_spec, device_specification=device_specification
+    )
+
+    # Initialize dataset
+    dataset = XarrayDatasetTOA(
+        toa_dataset,
+        rm_bands=spec['spectra']['drop_band_ranges'],
+        dtype=PRECISION,
+        device=device_,
+    )
+
+    # Initialize and run inference
+    cloud_mask = run_pt_inference_model(dataset, spec, weights, device_)
+
+    # Save output GeoTIFF if specified
+    if outfp is not None:
+        make_geotiff(cloud_mask, dataset.shape, outfp, proba, threshold)
+
+    return cloud_mask
+
+
+def initialize_pt_model(
+    arch: dict, dataset: ToaDataset, weights: str, device_: torch.device
+) -> nn.Module:
+    """
+    Initializes a PyTorch SpecTf model with the given architecture and weights.
+    Args:
+        arch: dict: Model architecture specifications.
+        dataset: ToaDataset: Dataset object containing toa data.
+        weights: str: Filepath to the model weights.
+        device_: torch.device: Device to load the model onto.
+
+    Returns:
+        model: nn.Module: The initialized PyTorch model.
+
+    """
     # Define and initialize the model
     banddef = torch.tensor(dataset.banddef, dtype=PRECISION, device=device_)
-    model = SpecTfEncoder(banddef=banddef,
-                          dim_output=2,
-                          num_heads=arch['num_heads'],
-                          dim_proj=arch['dim_proj'],
-                          dim_ff=arch['dim_ff'],
-                          agg=arch['agg'],
-                          use_residual=False,
-                          num_layers=1).to(device_, dtype=PRECISION)
+    model = SpecTfEncoder(
+        banddef=banddef,
+        dim_output=2,
+        num_heads=arch["num_heads"],
+        dim_proj=arch["dim_proj"],
+        dim_ff=arch["dim_ff"],
+        agg=arch["agg"],
+        use_residual=False,
+        num_layers=1,
+    ).to(device_, dtype=PRECISION)
     state_dict = torch.load(weights, map_location=device_)
     model.load_state_dict(state_dict)
     model.eval()
 
     # Optimize for jit
     model = torch.jit.optimize_for_inference(torch.jit.script(model))
+    return model
 
-    # Inference
+def run_pt_inference_model(dataset: ToaDataset, spec: dict, weights: str, device_: torch.device) -> np.ndarray:
+    """
+    Initializes a pytorch model and runs inference on the provided dataset using the specified model architecture and
+    weights.
+    Args:
+        dataset: ToaDataset: Dataset object containing toa data.
+        spec: dict: Model architecture specifications.
+        weights: str: Filepath to the model weights.
+        device_: torch.device: Device to run inference on.
+
+    Returns:
+        cloud_mask: np.ndarray: The generated cloud mask (probability values).
+
+    """
+    # Initialize dataloader
+    dataloader = DataLoader(
+        dataset,
+        batch_size=spec["inference"]["batch"],
+        shuffle=False,
+        num_workers=spec["inference"]["workers"],
+    )
+
+    # Initialize model
+    model = initialize_pt_model(spec["architecture"], dataset, weights, device_)
+
+    # Run Inference
+    dataset_shape = (dataset.shape[0] * dataset.shape[1],)
 
     logging.info("Starting inference.")
-    cloud_mask = np.zeros((dataset.shape[0]*dataset.shape[1],)).astype(np.float32)
+    cloud_mask = np.zeros(dataset_shape).astype(np.float32)
     total_len = len(dataloader)
     with torch.inference_mode():
         curr = 0
@@ -195,20 +288,25 @@ def deploy_pt(
         for i, batch in enumerate(dataloader):
             pred = model(batch)
             proba_ = nn.functional.softmax(pred, dim=1)
-            proba_ = proba_.to(dtype=torch.float32).cpu().detach().numpy()[:,1]
+            proba_ = proba_.to(dtype=torch.float32).cpu().detach().numpy()[:, 1]
 
-            nxt = curr+batch.size()[0]
+            nxt = curr + batch.size()[0]
             cloud_mask[curr:nxt] = proba_
 
             curr = nxt
-            if (i+1) % 100 == 0:
+            if (i + 1) % 100 == 0:
                 end = time.time()
-                logging.info("Iter %d: %.2f min remain.", i, (((end-start)/100)*(total_len-i-1))/60)
+                logging.info(
+                    "Iter %d: %.2f min remain.",
+                    i,
+                    (((end - start) / 100) * (total_len - i - 1)) / 60,
+                )
                 start = time.time()
 
     logging.info("Inference complete.")
 
-    make_geotiff(cloud_mask, dataset.shape, outfp, proba, threshold)
+    # Return cloud mask probabilities
+    return cloud_mask
 
 if __name__ == "__main__":
     print(MAIN_CALL_ERR_MSG % "deploy-pt")

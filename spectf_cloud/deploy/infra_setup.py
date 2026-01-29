@@ -8,10 +8,11 @@ logging.basicConfig(
     format="[%(levelname)s] %(message)s",
     handlers=[
         # Uncomment to also log to a file
-        #logging.FileHandler(op.join('out.log')),
+        # logging.FileHandler(op.join('out.log')),
         logging.StreamHandler()
-    ]
+    ],
 )
+
 
 def open_model_arch_spec(arch_spec: str, device_specification: str):
     """
@@ -26,7 +27,7 @@ def open_model_arch_spec(arch_spec: str, device_specification: str):
         device_ (torch.device): PyTorch device object for computation.
     """
     # Open model architecture specification from YAML file
-    with open(arch_spec, 'r', encoding='utf-8') as f:
+    with open(arch_spec, "r", encoding="utf-8") as f:
         spec = yaml.safe_load(f)
 
     # Setup PyTorch device
@@ -36,7 +37,7 @@ def open_model_arch_spec(arch_spec: str, device_specification: str):
     elif device_specification.startswith("cpu"):
         # first try MPS if available
         if torch.backends.mps.is_available() and torch.backends.mps.is_built():
-            device_ = torch.device("mps") # Apple silicon
+            device_ = torch.device("mps")  # Apple silicon
             logging.info("Device is Apple MPS acceleration")
         # otherwise use CPU
         else:

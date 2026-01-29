@@ -1,4 +1,4 @@
-""" Applies the SpecTf cloud screening model to an EMIT scene.
+"""Applies the SpecTf cloud screening model to an EMIT scene.
 
 Copyright 2025 California Institute of Technology
 Apache License, Version 2.0
@@ -26,7 +26,7 @@ from spectf_cloud.deploy.gen_geotiff import make_geotiff
 from spectf_cloud.cli import spectf_cloud, MAIN_CALL_ERR_MSG, DEFAULT_DIR
 
 PRECISION = torch.bfloat16
-ENV_VAR_PREFIX = 'SPECTF_DEPLOY_'
+ENV_VAR_PREFIX = "SPECTF_DEPLOY_"
 
 
 # TODO: Refactor this into the CLI
@@ -36,10 +36,11 @@ logging.basicConfig(
     format="[%(levelname)s] %(message)s",
     handlers=[
         # Uncomment to also log to a file
-        #logging.FileHandler(op.join('out.log')),
+        # logging.FileHandler(op.join('out.log')),
         logging.StreamHandler()
-    ]
+    ],
 )
+
 
 @click.argument(
     "rdnfp",
@@ -76,7 +77,7 @@ logging.basicConfig(
 )
 @click.option(
     "--weights",
-    default=DEFAULT_DIR/"weights/current.pt",
+    default=DEFAULT_DIR / "weights/current.pt",
     type=click.Path(exists=True, dir_okay=False),
     show_default=True,
     help="Filepath to latest trained model weights.",
@@ -84,7 +85,7 @@ logging.basicConfig(
 )
 @click.option(
     "--irradiance",
-    default=DEFAULT_DIR/"irr.npy",
+    default=DEFAULT_DIR / "irr.npy",
     type=click.Path(exists=True, dir_okay=False),
     show_default=True,
     help="Filepath to irradiance numpy file.",
@@ -92,7 +93,7 @@ logging.basicConfig(
 )
 @click.option(
     "--arch-spec",
-    default=DEFAULT_DIR/"spectf_cloud_config.yml",
+    default=DEFAULT_DIR / "spectf_cloud_config.yml",
     type=click.Path(exists=True, dir_okay=False),
     show_default=True,
     help="Filepath to model architecture YAML specification. This file also needs to contain the bands to remove",
@@ -121,7 +122,7 @@ logging.basicConfig(
     OUTFP is where the output file will be written (GeoTIFF .tif)
     RDNFP is the filepath of the radiance data (ENVI .img)
     OBSFP is the filepath of the observation data (ENVI .img)
-    """
+    """,
 )
 def deploy_pt(
     rdnfp,
@@ -138,22 +139,26 @@ def deploy_pt(
     """Applies the SpecTf cloud screening model to an EMIT scene."""
 
     # Open model architecture specification from YAML file and Setup PyTorch device
-    if device !=-1:
+    if device != -1:
         device_specification = f"cuda:{device}"
     else:
         device_specification = "cpu"
 
-    spec, device_ = open_model_arch_spec(arch_spec, device_specification=device_specification)
+    spec, device_ = open_model_arch_spec(
+        arch_spec, device_specification=device_specification
+    )
 
     # Initialize dataset
-    dataset = RasterDatasetTOA(rdnfp, 
-                               obsfp, 
-                               irradiance, 
-                               rm_bands=spec['spectra']['drop_band_ranges'],
-                               transform=None, 
-                               keep_bands=keep_bands, 
-                               dtype=PRECISION, 
-                               device=device_)
+    dataset = RasterDatasetTOA(
+        rdnfp,
+        obsfp,
+        irradiance,
+        rm_bands=spec["spectra"]["drop_band_ranges"],
+        transform=None,
+        keep_bands=keep_bands,
+        dtype=PRECISION,
+        device=device_,
+    )
 
     # Initialize and run inference
     cloud_mask = run_pt_inference_model(dataset, spec, weights, device_)
@@ -162,6 +167,7 @@ def deploy_pt(
         make_geotiff(cloud_mask, dataset.shape, outfp, proba, threshold)
 
     return cloud_mask
+
 
 def deploy_pt_from_toa(
     toa_dataset,
@@ -201,7 +207,7 @@ def deploy_pt_from_toa(
     # Initialize dataset
     dataset = XarrayDatasetTOA(
         toa_dataset,
-        rm_bands=spec['spectra']['drop_band_ranges'],
+        rm_bands=spec["spectra"]["drop_band_ranges"],
         dtype=PRECISION,
         device=device_,
     )
@@ -251,7 +257,10 @@ def initialize_pt_model(
     model = torch.jit.optimize_for_inference(torch.jit.script(model))
     return model
 
-def run_pt_inference_model(dataset: ToaDataset, spec: dict, weights: str, device_: torch.device) -> np.ndarray:
+
+def run_pt_inference_model(
+    dataset: ToaDataset, spec: dict, weights: str, device_: torch.device
+) -> np.ndarray:
     """
     Initializes a pytorch model and runs inference on the provided dataset using the specified model architecture and
     weights.
@@ -307,6 +316,7 @@ def run_pt_inference_model(dataset: ToaDataset, spec: dict, weights: str, device
 
     # Return cloud mask probabilities
     return cloud_mask
+
 
 if __name__ == "__main__":
     print(MAIN_CALL_ERR_MSG % "deploy-pt")

@@ -1,4 +1,4 @@
-""" Applies the SpecTf cloud screening model to an EMIT scene.
+"""Applies the SpecTf cloud screening model to an EMIT scene.
 
 Copyright 2025 California Institute of Technology
 Apache License, Version 2.0
@@ -32,7 +32,7 @@ import tensorrt as trt
 import pycuda.driver as cuda
 
 PRECISION = torch.bfloat16
-ENV_VAR_PREFIX = 'SPECTF_DEPLOY_'
+ENV_VAR_PREFIX = "SPECTF_DEPLOY_"
 
 
 # TODO: Refactor this into the CLI
@@ -42,10 +42,11 @@ logging.basicConfig(
     format="[%(levelname)s] %(message)s",
     handlers=[
         # Uncomment to also log to a file
-        #logging.FileHandler(op.join('out.log')),
+        # logging.FileHandler(op.join('out.log')),
         logging.StreamHandler()
-    ]
+    ],
 )
+
 
 @click.argument(
     "rdnfp",
@@ -82,7 +83,7 @@ logging.basicConfig(
 )
 @click.option(
     "--engine",
-    default=DEFAULT_DIR/"weights/current.engine",
+    default=DEFAULT_DIR / "weights/current.engine",
     type=click.Path(exists=True, dir_okay=False),
     show_default=True,
     help="Filepath to TensoRT model engine.",
@@ -90,7 +91,7 @@ logging.basicConfig(
 )
 @click.option(
     "--irradiance",
-    default=DEFAULT_DIR/"irr.npy",
+    default=DEFAULT_DIR / "irr.npy",
     type=click.Path(exists=True, dir_okay=False),
     show_default=True,
     help="Filepath to irradiance numpy file.",
@@ -98,7 +99,7 @@ logging.basicConfig(
 )
 @click.option(
     "--arch-spec",
-    default=DEFAULT_DIR/"spectf_cloud_config.yml",
+    default=DEFAULT_DIR / "spectf_cloud_config.yml",
     type=click.Path(exists=True, dir_okay=False),
     show_default=True,
     help="Filepath to model architecture YAML specification. This file also needs to contain the bands to remove",
@@ -119,7 +120,7 @@ logging.basicConfig(
     OUTFP is where the output file will be written (GeoTIFF .tif)
     RDNFP is the filepath of the radiance data (ENVI .img)
     OBSFP is the filepath of the observation data (ENVI .img)
-    """
+    """,
 )
 def deploy_trt(
     rdnfp,
@@ -134,20 +135,24 @@ def deploy_trt(
 ):
     """Applies the SpecTf cloud screening model to an EMIT scene."""
     if not torch.cuda.is_available():
-        raise RuntimeError("Cannot run the TensorRT runt time engine without a CUDA supported GPU.")
+        raise RuntimeError(
+            "Cannot run the TensorRT runt time engine without a CUDA supported GPU."
+        )
 
     spec, device_ = open_model_arch_spec(arch_spec, device_specification="cuda")
-    inference = spec['inference']
+    inference = spec["inference"]
 
     # Initialize dataset and dataloader
-    dataset = RasterDatasetTOA(rdnfp, 
-                               obsfp, 
-                               irradiance, 
-                               rm_bands=spec['spectra']['drop_band_ranges'],
-                               transform=None, 
-                               keep_bands=keep_bands, 
-                               dtype=PRECISION, 
-                               device=device_)
+    dataset = RasterDatasetTOA(
+        rdnfp,
+        obsfp,
+        irradiance,
+        rm_bands=spec["spectra"]["drop_band_ranges"],
+        transform=None,
+        keep_bands=keep_bands,
+        dtype=PRECISION,
+        device=device_,
+    )
 
     cloud_mask = run_trt_inference_model(dataset, engine, inference, device_)
 
@@ -156,26 +161,26 @@ def deploy_trt(
 
     return cloud_mask
 
-def pad_batch(b: torch.Tensor, target_bsz:int):    
+
+def pad_batch(b: torch.Tensor, target_bsz: int):
     # Pad w/ zeros
     padded_shape = (target_bsz,) + b.shape[1:]
-    padded_batch = torch.zeros(
-        padded_shape,
-        dtype=b.dtype,
-        device=b.device
-    )
+    padded_batch = torch.zeros(padded_shape, dtype=b.dtype, device=b.device)
 
-    padded_batch[:b.size(0)] = b
+    padded_batch[: b.size(0)] = b
     return padded_batch
+
 
 def run_trt_inference_model(dataset, engine, inference, device_):
     banddef = torch.tensor(dataset.banddef, dtype=PRECISION).to(device_)
     bc = BandConcat(banddef)
     dataset.toa_arr = bc(dataset.toa_arr)
-    dataloader = DataLoader(dataset,
-                            batch_size=inference['batch'],
-                            shuffle=False,
-                            num_workers=inference['workers'])
+    dataloader = DataLoader(
+        dataset,
+        batch_size=inference["batch"],
+        shuffle=False,
+        num_workers=inference["workers"],
+    )
 
     # Inference
     dataset_shape = (dataset.shape[0] * dataset.shape[1],)

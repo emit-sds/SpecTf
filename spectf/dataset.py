@@ -34,13 +34,21 @@ class ToaDataset(Dataset):
     """
 
     # Class attributes
-    toa_arr = None
-    transform = None
-    metadata = None
-    shape = None # NOTE this is the dataset shape before reshaping to (num_pixels, num_bands)
-    # This shape should be in order of (rows, cols, bands) or (cols, rows, bands)
+    # toa_arr - the main top of atmosphere reflectance data array, should be in shape (rows, cols, bands)
+    toa_arr: np.ndarray = None
 
-    banddef = None
+    # Optional transform callable method to be applied to each spectral data point
+    transform: Callable | None = None
+
+    # Metadata dictionary of the original raster image - not used in the dataset class, but stored
+    metadata: dict = None
+
+    # NOTE this is the original dataset shape - this should be in order of (rows, cols, bands) or (cols, rows, bands)
+    shape: tuple = None
+
+    # array of band wavelengths corresponding to the indices of the third dimension of toa_arr
+    # used for band dropping when requested
+    banddef: np.ndarray = None
 
     def init_class_data(
         self,

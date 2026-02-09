@@ -15,7 +15,6 @@ import rich_click as click
 import numpy as np
 
 import torch
-from isofit.utils.template_construction import Pathnames
 from torch import nn
 from torch.utils.data import DataLoader
 

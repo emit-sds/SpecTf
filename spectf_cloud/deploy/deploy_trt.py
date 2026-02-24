@@ -14,6 +14,7 @@ import time
 import rich_click as click
 import numpy as np
 from osgeo import gdal
+import xarray as xr
 
 from spectf_cloud.deploy.infra_setup import open_model_arch_spec
 
@@ -23,11 +24,11 @@ import torch
 from torch.utils.data import DataLoader
 
 from spectf.model import BandConcat
-from spectf.dataset import RasterDatasetTOA
+from spectf.dataset import RasterDatasetTOA, XarrayDatasetTOA
 from spectf_cloud.deploy.gen_geotiff import make_geotiff
+from spectf_cloud.deploy.tensor_rt_model import load_model_network_engine
 from spectf_cloud.cli import spectf_cloud, MAIN_CALL_ERR_MSG, DEFAULT_DIR
 
-from spectf_cloud.deploy.tensor_rt_model import load_model_network_engine
 import tensorrt as trt
 import pycuda.driver as cuda
 
@@ -132,7 +133,7 @@ def deploy_trt(
     irradiance,
     arch_spec,
     threshold,
-):
+) -> np.ndarray:
     """Applies the SpecTf cloud screening model to an EMIT scene."""
     if not torch.cuda.is_available():
         raise RuntimeError(
@@ -161,6 +162,51 @@ def deploy_trt(
 
     return cloud_mask
 
+
+def deploy_trt_from_toa(
+    toa_dataset: xr.DataArray,
+    engine_fp: str,
+    arch_spec: str,
+    proba: bool = False,
+    threshold: float = 0.51,
+    outfp: str | None = None,
+) -> np.ndarray:
+    """
+    Applies the SpecTf cloud screening model to a scene
+    Args:
+        toa_dataset: xr.Dataset xarray dataset containing TOA reflectance data.
+        engine_fp: filepath to the TensorRT engine file
+        arch_spec: str: Filepath to model architecture YAML specification.
+               This file also needs to contain the bands to remove (if desired)
+        proba: bool: Output probability map with the binary cloud mask, default False.
+        threshold: float: Threshold for cloud classification, default 0.51.
+        outfp:  str | None: Output filepath for the cloud mask GeoTIFF. if no path is provided - no file will be saved.
+
+    Returns:
+        cloud_mask: np.ndarray: The generated cloud mask (probability values).
+    """
+    if not torch.cuda.is_available():
+        raise RuntimeError(
+            "Cannot run the TensorRT runt time engine without a CUDA supported GPU."
+        )
+
+    spec, device_ = open_model_arch_spec(arch_spec, device_specification="cuda")
+    inference = spec["inference"]
+
+    # Initialize dataset
+    dataset = XarrayDatasetTOA(
+        toa_dataset,
+        rm_bands=spec["spectra"]["drop_band_ranges"],
+        dtype=PRECISION,
+        device=device_,
+    )
+
+    cloud_mask = run_trt_inference_model(dataset, engine_fp, inference, device_)
+
+    if outfp is not None:
+        make_geotiff(cloud_mask, dataset.shape, outfp, proba, threshold)
+
+    return cloud_mask
 
 def pad_batch(b: torch.Tensor, target_bsz: int):
     # Pad w/ zeros

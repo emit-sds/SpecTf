@@ -2,19 +2,8 @@ import logging
 import yaml
 import torch
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="[%(levelname)s] %(message)s",
-    handlers=[
-        # Uncomment to also log to a file
-        # logging.FileHandler(op.join('out.log')),
-        logging.StreamHandler()
-    ],
-)
 
-
-def open_model_arch_spec(arch_spec: str, device_specification: str):
+def open_model_arch_spec(arch_spec: str, device_specification: str) -> tuple[dict, torch.device]:
     """
     Opens the model architecture specification from a YAML file.
 
@@ -34,7 +23,7 @@ def open_model_arch_spec(arch_spec: str, device_specification: str):
     if device_specification.startswith("cuda") and torch.cuda.is_available():
         device_ = torch.device(device_specification)
         logging.info(f"Device is {device_specification}")
-    elif device_specification.startswith("cpu"):
+    elif device_specification.startswith("cpu") or device_specification.startswith("mps"):
         # first try MPS if available
         if torch.backends.mps.is_available() and torch.backends.mps.is_built():
             device_ = torch.device("mps")  # Apple silicon

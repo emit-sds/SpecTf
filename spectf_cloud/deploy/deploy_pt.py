@@ -13,6 +13,7 @@ import time
 
 import rich_click as click
 import numpy as np
+import xarray as xr
 
 import torch
 from torch import nn
@@ -134,7 +135,7 @@ def deploy_pt(
     arch_spec,
     device,
     threshold,
-):
+) -> np.ndarray:
     """Applies the SpecTf cloud screening model to an EMIT scene."""
 
     # Open model architecture specification from YAML file and Setup PyTorch device
@@ -172,14 +173,14 @@ def deploy_pt(
 
 
 def deploy_pt_from_toa(
-    toa_dataset,
+    toa_dataset: xr.DataArray,
     weights: str,
     arch_spec: str,
     proba: bool = False,
     device: int = -1,
     threshold: float = 0.51,
     outfp: str | None = None,
-):
+) -> np.ndarray:
     """
     Applies the SpecTf cloud screening model to a top of atmosphere dataset.
     Args:

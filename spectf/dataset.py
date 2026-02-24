@@ -151,7 +151,7 @@ class XarrayDatasetTOA(ToaDataset):
     def __init__(
         self,
         toa: xr.DataArray,
-        rm_bands: List[List[int]] | None = None,
+        rm_bands: List[List[int]] = None,
         transform: Callable = None,
         dtype: torch.dtype = torch.float,
         device: torch.device = None,

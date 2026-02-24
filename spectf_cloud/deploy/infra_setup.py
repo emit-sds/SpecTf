@@ -16,7 +16,7 @@ def open_model_arch_spec(arch_spec: str, device_specification: str) -> tuple[dic
         device_ (torch.device): PyTorch device object for computation.
     """
     # Open model architecture specification from YAML file
-    with open(arch_spec, "r", encoding="utf-8") as f:
+    with open(arch_spec, 'r', encoding='utf-8') as f:
         spec = yaml.safe_load(f)
 
     # Setup PyTorch device
@@ -26,7 +26,7 @@ def open_model_arch_spec(arch_spec: str, device_specification: str) -> tuple[dic
     elif device_specification.startswith("cpu") or device_specification.startswith("mps"):
         # first try MPS if available
         if torch.backends.mps.is_available() and torch.backends.mps.is_built():
-            device_ = torch.device("mps")  # Apple silicon
+            device_ = torch.device("mps") # Apple silicon
             logging.info("Device is Apple MPS acceleration")
         # otherwise use CPU
         else:

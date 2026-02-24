@@ -1,4 +1,4 @@
-"""Defines PyTorch dataset classes for loading raster or HDF5 data.
+""" Defines PyTorch dataset classes for loading raster or HDF5 data.
 
 Copyright 2025 California Institute of Technology
 Apache License, Version 2.0
@@ -50,13 +50,11 @@ class ToaDataset(Dataset):
     # used for band dropping when requested
     banddef: np.ndarray = None
 
-    def init_class_data(
-        self,
-        rm_bands: List[List[int]] = None,
-        transform: Callable = None,
-        dtype: torch.dtype = torch.float,
-        device: torch.device = None,
-    ):
+    def init_class_data(self,
+                        rm_bands: List[List[int]]=None,
+                        transform: Callable = None,
+                        dtype: torch.dtype = torch.float,
+                        device: torch.device = None):
         """
         Helper method to initialize class data common to all TOA datasets AFTER toa_arr has been set.
 
@@ -73,13 +71,13 @@ class ToaDataset(Dataset):
             raise ValueError("toa_arr must be set before calling init_class_data.")
 
         self.shape = self.toa_arr.shape
-        self.toa_arr = self.toa_arr.reshape(
-            (self.shape[0] * self.shape[1], self.shape[2])
-        )
+        self.toa_arr = self.toa_arr.reshape((self.shape[0] * self.shape[1],
+                                             self.shape[2]))
         if rm_bands is not None:
-            self.toa_arr, self.banddef = drop_bands(
-                self.toa_arr, self.banddef, rm_bands, nan=False
-            )
+            self.toa_arr, self.banddef = drop_bands(self.toa_arr,
+                                                    self.banddef,
+                                                    rm_bands,
+                                                    nan=False)
         self.transform = transform
 
         self.toa_arr = torch.tensor(self.toa_arr, dtype=dtype)
@@ -107,17 +105,17 @@ class RasterDatasetTOA(ToaDataset):
     """
 
     def __init__(
-        self,
-        rdnfp: str,
-        obsfp: str,
-        irrfp: str,
-        rm_bands: List[List[int]] = None,
-        transform: Callable = None,
-        keep_bands: bool = False,
-        dtype: torch.dtype = torch.float,
-        device: torch.device = None,
-    ):
-        """Initialize the RasterDatasetTOA Dataset object.
+            self, 
+            rdnfp: str, 
+            obsfp: str, 
+            irrfp: str,
+            rm_bands: List[List[int]]=None,
+            transform: Callable = None, 
+            keep_bands: bool = False, 
+            dtype: torch.dtype = torch.float,
+            device: torch.device = None,
+        ):
+        """ Initialize the RasterDatasetTOA Dataset object.
         Args:
             rdnfp (str): File path to the radiance data (L1b product).
             obsfp (str): File path to the observation data (L1b product).
@@ -136,18 +134,14 @@ class RasterDatasetTOA(ToaDataset):
         assert os.path.exists(self.obshdr), f"Header file {self.obshdr} does not exist."
         assert os.path.exists(irrfp), f"Irradiance file {irrfp} does not exist."
 
-        self.toa_arr, self.banddef, self.metadata = l1b_to_toa_arr(
-            self.rdnhdr, self.obshdr, irrfp
-        )
+        self.toa_arr, self.banddef, self.metadata = l1b_to_toa_arr(self.rdnhdr, self.obshdr, irrfp)
         self.init_class_data(rm_bands, transform, dtype, device)
-
 
 class XarrayDatasetTOA(ToaDataset):
     """
     A PyTorch dataset class for pixelwise access of top-of-atmosphere (TOA)
     reflectance data derived from toa xarray dataset.
     """
-
     def __init__(
         self,
         toa: xr.DataArray,
@@ -178,24 +172,19 @@ class SpectraDataset(Dataset):
 
     This dataset class is designed specifically for the dataset provided in:
     https://zenodo.org/records/14614218
-
+    
     Attributes:
         spectra (ndarray): The spectral data.
         labels (ndarray): The corresponding labels for the spectral data.
-        transform (callable): Transformations or normalizations
+        transform (callable): Transformations or normalizations 
                               for each spectral data point.
         device (str): The device to load the data onto (e.g., 'cpu', 'cuda:0').
     """
 
-    def __init__(
-        self,
-        spectra: np.ndarray,
-        labels: np.ndarray,
-        transform: bool = None,
-        device: str = "cpu",
-    ):
-        """Initialize the SpectraDataset object.
-
+    def __init__(self, spectra: np.ndarray, labels: np.ndarray,
+                 transform: bool = None, device: str = 'cpu'):
+        """ Initialize the SpectraDataset object.
+        
         Args:
             spectra (np.ndarray): The spectral data.
             labels (np.ndarray): The corresponding labels for the spectral data.
@@ -207,7 +196,7 @@ class SpectraDataset(Dataset):
         self.spectra = torch.tensor(spectra, dtype=torch.float32).to(device)
 
         self.labels = torch.tensor(labels).to(device)
-        self.labels[self.labels == 2] = 0  # shadow considered clear
+        self.labels[self.labels==2] = 0 # shadow considered clear
 
         self.transform = transform
 
@@ -215,8 +204,12 @@ class SpectraDataset(Dataset):
         return len(self.labels)
 
     def __getitem__(self, idx):
+
         out_spec = self.spectra[idx]
         if self.transform is not None:
             out_spec = self.transform(out_spec)
 
-        return {"spectra": torch.unsqueeze(out_spec, -1), "label": self.labels[idx]}
+        return {
+            'spectra': torch.unsqueeze(out_spec, -1),
+            'label': self.labels[idx]
+        }

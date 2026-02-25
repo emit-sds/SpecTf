@@ -11,7 +11,6 @@ from collections.abc import Callable
 from typing import List
 
 import numpy as np
-import xarray as xr
 import torch
 from torch.utils.data import Dataset
 
@@ -137,24 +136,27 @@ class RasterDatasetTOA(ToaDataset):
         self.toa_arr, self.banddef, self.metadata = l1b_to_toa_arr(self.rdnhdr, self.obshdr, irrfp)
         self.init_class_data(rm_bands, transform, dtype, device)
 
-class XarrayDatasetTOA(ToaDataset):
+class ArrayDatasetTOA(ToaDataset):
     """
     A PyTorch dataset class for pixelwise access of top-of-atmosphere (TOA)
-    reflectance data derived from toa xarray dataset.
+    reflectance data derived from toa numpy array.
     """
     def __init__(
         self,
-        toa: xr.DataArray,
+        toa: np.ndarray,
+        banddef: np.ndarray,
         rm_bands: List[List[int]] = None,
         transform: Callable = None,
         dtype: torch.dtype = torch.float,
         device: torch.device = None,
     ):
         """
-        Initialize the XarrayDatasetTOA Dataset object.
+        Initialize the ArrayDatasetTOA Dataset object.
 
         Args:
-            toa: xarray dataset of top of atmosphere reflectance.
+            toa: numpy array of top of atmosphere reflectance, should be in shape (rows, cols, bands)
+            banddef: numpy array of band wavelengths corresponding to the indices of the third dimension of toa_arr
+                used for band dropping when requested
             rm_bands (List[List[int]] | None): if None - keep all bands on non-EMIT data, else drop specified bands.
             transform: Callable = None: Optional transform to be applied to each spectral data point.
             dtype: torch.dtype = torch.float: data type to load data as
@@ -162,8 +164,8 @@ class XarrayDatasetTOA(ToaDataset):
         """
         super().__init__()
 
-        self.toa_arr = toa.values
-        self.banddef = toa.banddef.values
+        self.toa_arr = toa
+        self.banddef = banddef
         self.init_class_data(rm_bands, transform, dtype, device)
 
 

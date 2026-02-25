@@ -13,7 +13,6 @@ import time
 
 import rich_click as click
 import numpy as np
-import xarray as xr
 
 import torch
 from torch import nn
@@ -21,7 +20,7 @@ from torch.utils.data import DataLoader
 
 from spectf_cloud.deploy.infra_setup import open_model_arch_spec
 from spectf.model import SpecTfEncoder
-from spectf.dataset import RasterDatasetTOA, XarrayDatasetTOA, ToaDataset
+from spectf.dataset import RasterDatasetTOA, ArrayDatasetTOA, ToaDataset
 from spectf_cloud.deploy.gen_geotiff import make_geotiff
 from spectf_cloud.cli import spectf_cloud, MAIN_CALL_ERR_MSG, DEFAULT_DIR
 
@@ -167,7 +166,8 @@ def deploy_pt(
     return cloud_mask_reshaped
 
 def deploy_pt_from_toa(
-    toa_dataset: xr.DataArray,
+    toa_dataset: np.ndarray,
+    banddef: np.ndarray,
     weights: str,
     arch_spec: str,
     proba: bool = False,
@@ -178,7 +178,8 @@ def deploy_pt_from_toa(
     """
     Applies the SpecTf cloud screening model to a top of atmosphere dataset.
     Args:
-        toa_dataset: xr.Dataset xarray dataset containing TOA reflectance data.
+        toa_dataset: np.ndarray containing TOA reflectance data shape (rows, cols, bands) or (cols, rows, bands).
+        banddef: np.ndarray containing band wavelengths corresponding to the bands in toa_dataset.
         proba: bool: Output probability map with the binary cloud mask, default False.
         weights: str: Filepath to latest trained model weights.
         arch_spec: str: Filepath to model architecture YAML specification.
@@ -202,8 +203,9 @@ def deploy_pt_from_toa(
     )
 
     # Initialize dataset
-    dataset = XarrayDatasetTOA(
+    dataset = ArrayDatasetTOA(
         toa_dataset,
+        banddef,
         rm_bands=spec['spectra']['drop_band_ranges'],
         dtype=PRECISION,
         device=device_,

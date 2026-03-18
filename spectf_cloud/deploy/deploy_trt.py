@@ -30,6 +30,7 @@ from spectf_cloud.cli import spectf_cloud, MAIN_CALL_ERR_MSG, DEFAULT_DIR
 
 import tensorrt as trt
 import pycuda.driver as cuda
+import pycuda.autoinit
 
 PRECISION = torch.bfloat16
 ENV_VAR_PREFIX = 'SPECTF_DEPLOY_'
@@ -63,7 +64,6 @@ logging.basicConfig(
     "outfp",
     type=click.Path(),
     default=None,
-    help="Output filepath for the cloud mask GeoTIFF. if no path is provided - no file will be written.",
     envvar=f"{ENV_VAR_PREFIX}OUTFP",
 )
 @click.option(

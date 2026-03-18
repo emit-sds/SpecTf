@@ -56,7 +56,6 @@ logging.basicConfig(
     "outfp",
     type=click.Path(),
     default=None,
-    help="Output filepath for the cloud mask GeoTIFF. if no path is provided - no file will be written.",
     envvar=f"{ENV_VAR_PREFIX}OUTFP",
 )
 @click.option(

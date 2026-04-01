@@ -8,7 +8,7 @@ Author: Jake Lee, jake.h.lee@jpl.nasa.gov
 
 import os
 from collections.abc import Callable
-from typing import List
+from typing import List, Optional
 
 import numpy as np
 import torch
@@ -37,7 +37,7 @@ class ToaDataset(Dataset):
     toa_arr: np.ndarray = None
 
     # Optional transform callable method to be applied to each spectral data point
-    transform: Callable | None = None
+    transform: Optional[Callable] = None
 
     # Metadata dictionary of the original raster image - not used in the dataset class, but stored
     metadata: dict = None

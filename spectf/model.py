@@ -56,6 +56,55 @@ class BandConcat(nn.Module):
         return encoded
 
 
+class BandConcatV2(nn.Module):
+    """Module to concatenate band wavelength information to spectra (Dynamic).
+
+    This serves as the positional encoding for the transformer, and replaces the
+    traditional additive sinusoidal encoding. Band wavelengths are passed during
+    the forward pass and normalized to a fixed mean and standard deviation.
+    Default mean (1440) and std (600) are set based on the EMIT spectral range.
+
+    Attributes:
+        mean (int): Predefined mean of the band center wavelengths.
+        std (int): Predefined stddev of the band center wavelengths.
+    """
+
+    def __init__(self, mean: int = 1440, std: int = 600):
+        """Initialize BandConcatV2 module.
+
+        Args:
+            mean (int): Mean of the band center wavelengths. Default 1440.
+            std (int): Stddev of the band center wavelengths. Default 600.
+        """
+        super().__init__()
+        self.mean = mean
+        self.std = std
+
+    def forward(self, spectra: torch.Tensor, banddef: torch.Tensor):
+        """BandConcatV2 forward pass.
+
+        Args:
+            spectra (torch.Tensor): tensor of shape (b, s, 1)
+            banddef (torch.Tensor): tensor of shape (b, s) or (s,)
+
+        Returns:
+            torch.Tensor: concatenated tensor of shape (b, s, 2)
+        """
+        # Ensure banddef is (b, s, 1)
+        if banddef.dim() == 1:
+            # (s,) -> (1, s, 1)
+            banddef = banddef.unsqueeze(-1).unsqueeze(0)
+        elif banddef.dim() == 2:
+            # (b, s) -> (b, s, 1)
+            banddef = banddef.unsqueeze(-1)
+        
+        # Normalize band wavelengths
+        banddef_norm = (banddef - self.mean) / self.std
+        
+        encoded = torch.cat((spectra, banddef_norm.expand_as(spectra)), dim=-1)
+        return encoded
+
+
 class SpectralEmbed(nn.Module):
     """Module to embed spectra per-band using a linear layer.
 
@@ -177,7 +226,8 @@ class AttentionBlock(nn.Module):
 
         Args:
             dim_model (int): Dimension of the input and output tensors.
-            num_heads (int): Number of attention heads.
+            num_heads (int): Number of attention heads. Must be a divisor of
+                             dim_model.
             dropout (float): Dropout rate. Default 0.1.
             use_residual (bool): Whether to use residual connections.
                                  Default False.
@@ -416,6 +466,104 @@ class SpecTfEncoder(nn.Module):
             torch.Tensor: Output tensor of shape (b, num_classes)
         """
         x = self.band_concat(x)
+        x = self.spectral_embed(x)
+
+        for layer in self.layers:
+            x = layer(x)
+
+        x = self.aggregate(x)
+        x = self.head(x)
+
+        return x
+
+    def initialize_weights(self):
+        """Initialize weights for the model."""
+        for module in self.modules():
+            if isinstance(module, (nn.Linear, nn.Conv1d)):
+                nn.init.xavier_uniform_(module.weight)
+                if module.bias is not None:
+                    nn.init.constant_(module.bias, 0)
+
+
+class SpecTfEncoderV2(nn.Module):
+    """Encoder based Spectral Transformer model (Dynamic Banddef).
+    
+    This is a version of the Spectral Transformer architecture that allows the
+    wavelength grid (banddef) to be passed as an input during the forward pass,
+    enabling each input spectrum to have a different wavelength band.
+    
+    Model weights are initialized using Xavier initialization and model biases
+    are initialized to zero with self.initialize_weights().
+
+    Attributes:
+        band_concat: BandConcatV2 module
+        spectral_embed: SpectralEmbed module
+        layers: List of EncoderLayer modules
+        aggregate: Aggregation method ('mean', 'max')
+        head: Linear layer for classification or regression
+    """
+    def __init__(self,
+                 dim_output: int = 2,
+                 num_heads: int = 8,
+                 dim_proj: int = 64,
+                 dim_ff: int = 64,
+                 dropout: float = 0.1,
+                 agg: str = 'max',
+                 use_residual: bool = False,
+                 num_layers: int = 1):
+        """Initialize SpecTfEncoderV2 module.
+
+        Args:
+            dim_output (int): Output dimension of the model. Default 2.
+            num_heads (int): Number of attention heads. Must be a divisor of
+                             dim_proj. Default 8.
+            dim_proj (int): Dimension of the projected tensors. Default 64.
+            dim_ff (int): Dimension of the intermediate tensors. Default 64.
+            dropout (float): Dropout rate. Default 0.1.
+            agg (str): Aggregation method ('mean', 'max').
+                       Default 'max'.
+            use_residual (bool): Whether to use residual connections.
+                                  Default False.
+            num_layers (int): Number of encoder layers. Default 1.
+        """
+        super().__init__()
+
+        # Embedding
+        self.band_concat = BandConcatV2()
+        self.spectral_embed = SpectralEmbed(n_filters=dim_proj)
+
+        # Attention
+        self.layers = nn.ModuleList([
+            EncoderLayer(dim_proj, num_heads, dim_ff, dropout, use_residual)
+            for _ in range(num_layers)
+        ])
+
+        # Head
+        self.agg = agg
+        self.head = nn.Linear(dim_proj, dim_output)
+
+        self.initialize_weights()
+
+    def aggregate(self, x):
+        """Performs the selected aggregation method. Needs to be broken out here for PyTorch's JiT"""
+        if self.agg == 'mean':
+            return torch.mean(x, dim=1)
+        elif self.agg == 'max':
+            return torch.max(x, dim=1)[0]
+        else:
+            raise ValueError(f'Aggregation method {self.agg} is not implemented.')
+
+    def forward(self, x: torch.Tensor, banddef: torch.Tensor):
+        """SpecTfEncoderV2 forward pass.
+        
+        Args:
+            x (torch.Tensor): Input tensor of shape (b, s, 1)
+            banddef (torch.Tensor): Band center wavelengths of shape (b, s) or (s,)
+        
+        Returns:
+            torch.Tensor: Output tensor of shape (b, num_classes)
+        """
+        x = self.band_concat(x, banddef)
         x = self.spectral_embed(x)
 
         for layer in self.layers:

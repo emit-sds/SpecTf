@@ -243,19 +243,21 @@ class AttentionBlock(nn.Module):
         self.use_residual = use_residual
 
     def forward(self, query: torch.Tensor, key: torch.Tensor,
-                value: torch.Tensor):
+                value: torch.Tensor, key_padding_mask: torch.Tensor = None):
         """AttentionBlock forward pass.
 
         Args:
             query (torch.Tensor): Query tensor of shape (b, s, dim_model)
             key (torch.Tensor): Key tensor of shape (b, s, dim_model)
             value (torch.Tensor): Value tensor of shape (b, s, dim_model)
+            key_padding_mask (torch.Tensor): Optional mask of shape (b, s), 
+                                             True for padded elements.
         
         Returns:
             torch.Tensor: Output tensor of shape (b, s, dim_model)
         """
         residual = query
-        x = self.attention(query, key, value)[0]
+        x = self.attention(query, key, value, key_padding_mask=key_padding_mask)[0]
         x = self.dropout(x)
         if self.use_residual:
             x = x + residual
@@ -300,16 +302,17 @@ class EncoderLayer(nn.Module):
         self.norm1 = nn.LayerNorm(dim_model)
         self.norm2 = nn.LayerNorm(dim_model)
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor, mask: torch.Tensor = None):
         """EncoderLayer forward pass.
         
         Args:
             x (torch.Tensor): Input tensor of shape (b, s, dim_model)
+            mask (torch.Tensor): Optional mask of shape (b, s), True for padded elements.
         
         Returns:
             torch.Tensor: Output tensor of shape (b, s, dim_model)
         """
-        x = self.attention(self.norm1(x), self.norm1(x), self.norm1(x))
+        x = self.attention(self.norm1(x), self.norm1(x), self.norm1(x), key_padding_mask=mask)
         x = self.ff(self.norm2(x))
         return x
 
@@ -544,21 +547,33 @@ class SpecTfEncoderV2(nn.Module):
 
         self.initialize_weights()
 
-    def aggregate(self, x):
+    def aggregate(self, x, mask: torch.Tensor = None):
         """Performs the selected aggregation method. Needs to be broken out here for PyTorch's JiT"""
         if self.agg == 'mean':
+            if mask is not None:
+                # mask: (b, s), True for padded. Create valid mask (True for valid).
+                valid_mask = ~mask.unsqueeze(-1).bool()
+                sum_x = torch.sum(x * valid_mask.float(), dim=1)
+                count = torch.sum(valid_mask.float(), dim=1)
+                return sum_x / count
             return torch.mean(x, dim=1)
         elif self.agg == 'max':
+            if mask is not None:
+                # mask: (b, s), True for padded.
+                mask_expanded = mask.unsqueeze(-1).bool()
+                x_masked = x.masked_fill(mask_expanded, float('-inf'))
+                return torch.max(x_masked, dim=1)[0]
             return torch.max(x, dim=1)[0]
         else:
             raise ValueError(f'Aggregation method {self.agg} is not implemented.')
 
-    def forward(self, x: torch.Tensor, banddef: torch.Tensor):
+    def forward(self, x: torch.Tensor, banddef: torch.Tensor, mask: torch.Tensor = None):
         """SpecTfEncoderV2 forward pass.
         
         Args:
             x (torch.Tensor): Input tensor of shape (b, s, 1)
             banddef (torch.Tensor): Band center wavelengths of shape (b, s) or (s,)
+            mask (torch.Tensor): Optional mask of shape (b, s), True for padded elements.
         
         Returns:
             torch.Tensor: Output tensor of shape (b, num_classes)
@@ -567,9 +582,9 @@ class SpecTfEncoderV2(nn.Module):
         x = self.spectral_embed(x)
 
         for layer in self.layers:
-            x = layer(x)
+            x = layer(x, mask=mask)
 
-        x = self.aggregate(x)
+        x = self.aggregate(x, mask=mask)
         x = self.head(x)
 
         return x

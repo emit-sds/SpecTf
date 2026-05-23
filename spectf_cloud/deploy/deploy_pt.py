@@ -10,6 +10,7 @@ This version of the dployment script quantizes the model, and runs it with PyTor
 
 import logging
 import time
+from typing import Optional
 
 import rich_click as click
 import numpy as np
@@ -172,7 +173,7 @@ def deploy_pt_from_toa(
     proba: bool = False,
     device: int = -1,
     threshold: float = 0.51,
-    outfp: str | None = None,
+    outfp: Optional[str] = None,
 ) -> np.ndarray:
     """
     Applies the SpecTf cloud screening model to a top of atmosphere dataset.

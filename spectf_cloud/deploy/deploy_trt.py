@@ -15,8 +15,6 @@ import rich_click as click
 import numpy as np
 from osgeo import gdal
 
-from spectf_cloud.deploy.infra_setup import open_model_arch_spec
-
 gdal.UseExceptions()
 
 import torch
@@ -27,6 +25,7 @@ from spectf.dataset import RasterDatasetTOA, ArrayDatasetTOA
 from spectf_cloud.deploy.gen_geotiff import make_geotiff
 from spectf_cloud.deploy.tensor_rt_model import load_model_network_engine
 from spectf_cloud.cli import spectf_cloud, MAIN_CALL_ERR_MSG, DEFAULT_DIR
+from spectf_cloud.deploy.infra_setup import open_model_arch_spec
 
 import tensorrt as trt
 import pycuda.driver as cuda

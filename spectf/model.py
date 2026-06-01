@@ -8,6 +8,7 @@ Author: Jake Lee, jake.h.lee@jpl.nasa.gov
 
 import torch
 from torch import nn
+from typing import Optional
 
 
 class BandConcat(nn.Module):
@@ -243,7 +244,7 @@ class AttentionBlock(nn.Module):
         self.use_residual = use_residual
 
     def forward(self, query: torch.Tensor, key: torch.Tensor,
-                value: torch.Tensor, key_padding_mask: torch.Tensor = None):
+                value: torch.Tensor, key_padding_mask: Optional[torch.Tensor] = None):
         """AttentionBlock forward pass.
 
         Args:
@@ -302,7 +303,7 @@ class EncoderLayer(nn.Module):
         self.norm1 = nn.LayerNorm(dim_model)
         self.norm2 = nn.LayerNorm(dim_model)
 
-    def forward(self, x: torch.Tensor, mask: torch.Tensor = None):
+    def forward(self, x: torch.Tensor, mask: Optional[torch.Tensor] = None):
         """EncoderLayer forward pass.
         
         Args:
@@ -547,27 +548,34 @@ class SpecTfEncoderV2(nn.Module):
 
         self.initialize_weights()
 
-    def aggregate(self, x, mask: torch.Tensor = None):
+    def aggregate(self, x: torch.Tensor, mask: Optional[torch.Tensor] = None) -> torch.Tensor:
         """Performs the selected aggregation method. Needs to be broken out here for PyTorch's JiT"""
         if self.agg == 'mean':
             if mask is not None:
                 # mask: (b, s), True for padded. Create valid mask (True for valid).
-                valid_mask = ~mask.unsqueeze(-1).bool()
-                sum_x = torch.sum(x * valid_mask.float(), dim=1)
-                count = torch.sum(valid_mask.float(), dim=1)
-                return sum_x / count
+                valid_mask = ~mask.unsqueeze(-1).to(torch.bool)
+                valid_mask_f = valid_mask.to(x.dtype)
+                sum_x = torch.sum(x * valid_mask_f, dim=1)
+                count = torch.sum(valid_mask_f, dim=1)
+
+                # Use clamp to prevent division by zero if an entire sequence is masked
+                return sum_x / count.clamp(min=1e-9)
+
             return torch.mean(x, dim=1)
+
         elif self.agg == 'max':
             if mask is not None:
                 # mask: (b, s), True for padded.
-                mask_expanded = mask.unsqueeze(-1).bool()
+                mask_expanded = mask.unsqueeze(-1).to(torch.bool)
                 x_masked = x.masked_fill(mask_expanded, float('-inf'))
                 return torch.max(x_masked, dim=1)[0]
-            return torch.max(x, dim=1)[0]
-        else:
-            raise ValueError(f'Aggregation method {self.agg} is not implemented.')
 
-    def forward(self, x: torch.Tensor, banddef: torch.Tensor, mask: torch.Tensor = None):
+            return torch.max(x, dim=1)[0]
+
+        else:
+            raise ValueError(f"Aggregation method {self.agg} is not implemented.")
+
+    def forward(self, x: torch.Tensor, banddef: torch.Tensor, mask: Optional[torch.Tensor] = None):
         """SpecTfEncoderV2 forward pass.
         
         Args:

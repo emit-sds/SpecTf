@@ -215,3 +215,51 @@ class SpectraDataset(Dataset):
             'spectra': torch.unsqueeze(out_spec, -1),
             'label': self.labels[idx]
         }
+
+
+class SpectraDatasetV2(Dataset):
+    """A PyTorch dataset class for access of ML-ready HDF5 spectral data (Dynamic Banddef).
+
+    Attributes:
+        spectra (ndarray): The spectral data.
+        labels (ndarray): The corresponding labels for the spectral data.
+        wavelengths (ndarray): The corresponding wavelength band definitions.
+        transform (callable): Transformations or normalizations 
+                               for each spectral data point.
+        device (str): The device to load the data onto (e.g., 'cpu', 'cuda:0').
+    """
+
+    def __init__(self, spectra: np.ndarray, labels: np.ndarray, wavelengths: np.ndarray,
+                 transform: bool = None, device: str = 'cpu'):
+        """ Initialize the SpectraDatasetV2 object.
+        
+        Args:
+            spectra (np.ndarray): The spectral data.
+            labels (np.ndarray): The corresponding labels for the spectral data.
+            wavelengths (np.ndarray): The corresponding wavelength band definitions.
+            transform (callable): Optional transform to be applied to
+                                   each spectral data point. Default None.
+            device (str): The device to load the data onto. Default 'cpu'.
+        """
+        super().__init__()
+        self.spectra = torch.tensor(spectra, dtype=torch.float32).to(device)
+        self.labels = torch.tensor(labels).to(device)
+        self.labels[self.labels==2] = 0 # shadow considered clear
+        self.wavelengths = torch.tensor(wavelengths, dtype=torch.float32).to(device)
+
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.labels)
+
+    def __getitem__(self, idx):
+
+        out_spec = self.spectra[idx]
+        if self.transform is not None:
+            out_spec = self.transform(out_spec)
+
+        return {
+            'spectra': torch.unsqueeze(out_spec, -1),
+            'label': self.labels[idx],
+            'banddef': self.wavelengths[idx]
+        }

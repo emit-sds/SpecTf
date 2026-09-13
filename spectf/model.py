@@ -325,6 +325,144 @@ class DecoderLayer(nn.Module):
         return x
 
 
+class CrossDecoderLayer(nn.Module):
+    """Decoder layer with cross-attention only, and no self-attention.
+
+    This is a DecoderLayer stripped of its self-attention block, used for
+    Query2Label-style label-query pooling: each query attends independently
+    into the input token sequence, without modeling interactions between
+    queries. Pre-layer normalization variant per Xiong et al. (2020).
+
+    Attributes and Architecture:
+        norm2: LayerNorm module
+        cross_attn: AttentionBlock module
+        norm3: LayerNorm module
+        ff: FeedForwardBlock module
+    """
+
+    def __init__(self, dim_model: int, num_heads: int, dim_ff: int,
+                 dropout: float = 0.1, use_residual: bool = False):
+        """ Initialize CrossDecoderLayer module.
+
+        Args:
+            dim_model (int): Dimension of the input and output tensors.
+            num_heads (int): Number of attention heads. Must be a divisor of
+                             dim_model.
+            dim_ff (int): Dimension of the intermediate tensor.
+            dropout (float): Dropout rate. Default 0.1.
+            use_residual (bool): Whether to use residual connections.
+                                 Default False.
+        """
+
+        super().__init__()
+        self.cross_attn = AttentionBlock(dim_model, num_heads, dropout,
+                                         use_residual)
+        self.ff = FeedForwardBlock(dim_model, dim_ff, dropout, use_residual)
+        self.norm2 = nn.LayerNorm(dim_model)
+        self.norm3 = nn.LayerNorm(dim_model)
+
+    def forward(self, x, enc_out):
+        """CrossDecoderLayer forward pass.
+
+        Args:
+            x (torch.Tensor): Query tensor of shape (b, q, dim_model)
+            enc_out (torch.Tensor): Encoder output tensor of shape
+                                    (b, s, dim_model)
+
+        Returns:
+            torch.Tensor: Output tensor of shape (b, q, dim_model)
+        """
+        x = self.cross_attn(self.norm2(x), enc_out, enc_out)
+        x = self.ff(self.norm3(x))
+        return x
+
+
+class LabelQueryPooling(nn.Module):
+    """Pools a token sequence into per-class logits via learned label queries.
+
+    Replaces shared mean/max pooling with one learned query vector per class.
+    Each query is cross-attended into the input token sequence across one or
+    more decoder layers, giving each class its own pooled representation
+    instead of forcing every class to share a single pooled vector. This is
+    permutation- and length-invariant over the input tokens, preserving
+    SpecTf's ability to generalize across band counts/samplings.
+
+    Set use_self_attn=False for Query2Label-style pooling (Liu et al., 2021,
+    "Query2Label: A Simple Transformer Way to Multi-Label Classification"):
+    queries only cross-attend into the input tokens.
+
+    Set use_self_attn=True for C-Tran-style pooling (Lanchantin et al., 2021,
+    "General Multi-Label Image Classification with Transformers"): queries
+    additionally self-attend to each other every layer, allowing the model to
+    learn label co-occurrence structure (e.g. soil and pv commonly
+    co-occurring) directly in the pooling step.
+
+    The final per-class logit is computed with an independent weight vector
+    per class ("GroupFC", as in Query2Label/ML-Decoder) rather than a single
+    shared nn.Linear, which would allow classes to mix through shared weights.
+
+    Attributes:
+        label_queries (nn.Parameter): Learned per-class query vectors,
+            shape (n_classes, dim_proj).
+        layers: List of DecoderLayer (use_self_attn=True) or CrossDecoderLayer
+            (use_self_attn=False) modules.
+        head_weight (nn.Parameter): Per-class head weight, shape
+            (n_classes, dim_proj).
+        head_bias (nn.Parameter): Per-class head bias, shape (n_classes,).
+    """
+
+    def __init__(self, dim_proj: int, n_classes: int, num_heads: int,
+                 dim_ff: int, dropout: float = 0.1, num_layers: int = 1,
+                 use_residual: bool = False, use_self_attn: bool = False):
+        """Initialize LabelQueryPooling module.
+
+        Args:
+            dim_proj (int): Dimension of the input tokens and label queries.
+            n_classes (int): Number of classes (label queries/output logits).
+            num_heads (int): Number of attention heads. Must be a divisor of
+                             dim_proj.
+            dim_ff (int): Dimension of the intermediate feed-forward tensor.
+            dropout (float): Dropout rate. Default 0.1.
+            num_layers (int): Number of pooling decoder layers. Default 1.
+            use_residual (bool): Whether to use residual connections in the
+                                 pooling layers. Default False.
+            use_self_attn (bool): Whether label queries self-attend to each
+                                  other (C-Tran) or only cross-attend into the
+                                  input tokens (Query2Label). Default False.
+        """
+        super().__init__()
+        self.use_self_attn = use_self_attn
+
+        self.label_queries = nn.Parameter(torch.empty(n_classes, dim_proj))
+        nn.init.trunc_normal_(self.label_queries, std=0.02)
+
+        layer_cls = DecoderLayer if use_self_attn else CrossDecoderLayer
+        self.layers = nn.ModuleList([
+            layer_cls(dim_proj, num_heads, dim_ff, dropout, use_residual)
+            for _ in range(num_layers)
+        ])
+
+        self.head_weight = nn.Parameter(torch.empty(n_classes, dim_proj))
+        self.head_bias = nn.Parameter(torch.zeros(n_classes))
+        nn.init.xavier_uniform_(self.head_weight)
+
+    def forward(self, tokens: torch.Tensor):
+        """LabelQueryPooling forward pass.
+
+        Args:
+            tokens (torch.Tensor): Input token sequence, shape (b, s, dim_proj)
+
+        Returns:
+            torch.Tensor: Per-class logits, shape (b, n_classes)
+        """
+        x = self.label_queries.unsqueeze(0).expand(tokens.shape[0], -1, -1)
+
+        for layer in self.layers:
+            x = layer(x, tokens)
+
+        return (x * self.head_weight).sum(dim=-1) + self.head_bias
+
+
 class SpecTfEncoder(nn.Module):
     """Encoder based Spectral Transformer model.
     
@@ -428,6 +566,111 @@ class SpecTfEncoder(nn.Module):
 
     def initialize_weights(self):
         """Initialize weights for the model."""
+        for module in self.modules():
+            if isinstance(module, (nn.Linear, nn.Conv1d)):
+                nn.init.xavier_uniform_(module.weight)
+                if module.bias is not None:
+                    nn.init.constant_(module.bias, 0)
+
+
+class SpecTfLabelQueryEncoder(nn.Module):
+    """Encoder-based Spectral Transformer model with label-query pooling.
+
+    Identical to SpecTfEncoder, but replaces shared mean/max/flat pooling
+    with LabelQueryPooling: one learned query vector per class, cross-
+    attended into the encoder's token sequence, giving each class its own
+    pooled representation instead of a single vector shared across classes.
+
+    Set use_self_attn=False for Query2Label-style pooling (queries only
+    cross-attend into tokens) or True for C-Tran-style pooling (queries also
+    self-attend to each other, modeling label co-occurrence). See
+    LabelQueryPooling for references.
+
+    Model weights are initialized using Xavier initialization and model biases
+    are initialized to zero with self.initialize_weights().
+
+    Attributes:
+        band_concat: BandConcat module
+        spectral_embed: SpectralEmbed module
+        layers: List of EncoderLayer modules
+        pool: LabelQueryPooling module
+    """
+
+    def __init__(self,
+                 banddef: torch.Tensor,
+                 dim_output: int = 2,
+                 num_heads: int = 8,
+                 dim_proj: int = 64,
+                 dim_ff: int = 64,
+                 dropout: float = 0.1,
+                 use_residual: bool = False,
+                 num_layers: int = 1,
+                 num_pool_layers: int = 1,
+                 use_self_attn: bool = False):
+        """Initialize SpecTfLabelQueryEncoder module.
+
+        Args:
+            banddef (torch.Tensor): Band center wavelengths.
+            dim_output (int): Number of classes / label queries. Default 2.
+            num_heads (int): Number of attention heads. Must be a divisor of
+                             dim_proj. Default 8.
+            dim_proj (int): Dimension of the projected tensors. Default 64.
+            dim_ff (int): Dimension of the intermediate tensors. Default 64.
+            dropout (float): Dropout rate. Default 0.1.
+            use_residual (bool): Whether to use residual connections in the
+                                 encoder and pooling layers. Default False.
+            num_layers (int): Number of encoder layers. Default 1.
+            num_pool_layers (int): Number of label-query pooling layers.
+                                   Default 1.
+            use_self_attn (bool): Whether label queries self-attend to each
+                                  other (C-Tran) or only cross-attend into
+                                  the encoder tokens (Query2Label).
+                                  Default False.
+        """
+        super().__init__()
+
+        # Embedding
+        self.band_concat = BandConcat(banddef)
+        self.spectral_embed = SpectralEmbed(n_filters=dim_proj)
+
+        # Attention
+        self.layers = nn.ModuleList([
+            EncoderLayer(dim_proj, num_heads, dim_ff, dropout, use_residual)
+            for _ in range(num_layers)
+        ])
+
+        # Label-query pooling + head
+        self.pool = LabelQueryPooling(dim_proj, dim_output, num_heads, dim_ff,
+                                      dropout, num_pool_layers, use_residual,
+                                      use_self_attn)
+
+        self.initialize_weights()
+
+    def forward(self, x: torch.Tensor):
+        """SpecTfLabelQueryEncoder forward pass.
+
+        Args:
+            x (torch.Tensor): Input tensor of shape (b, s, 1)
+
+        Returns:
+            torch.Tensor: Output tensor of shape (b, num_classes)
+        """
+        x = self.band_concat(x)
+        x = self.spectral_embed(x)
+
+        for layer in self.layers:
+            x = layer(x)
+
+        return self.pool(x)
+
+    def initialize_weights(self):
+        """Initialize weights for the model.
+
+        Note: LabelQueryPooling initializes its own label_queries and
+        head_weight parameters in __init__, so only nn.Linear/nn.Conv1d
+        modules (encoder layers, attention projections) are reinitialized
+        here.
+        """
         for module in self.modules():
             if isinstance(module, (nn.Linear, nn.Conv1d)):
                 nn.init.xavier_uniform_(module.weight)

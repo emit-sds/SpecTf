@@ -107,10 +107,8 @@ class FeedForwardBlock(nn.Module):
     """Feed-forward module for transformer layers.
 
     This module consists of two linear layers with a GELU activation in between.
-    The residual connection is disabled by default, since SpecTf is a shallow
-    model that only uses a single transformer module. Deeper modules may require
-    residual connections due to the vanishing gradient problem.
-    
+    The residual connection is disabled by default.
+
     Attributes and Architecture:
         self.linear1: Linear layer (dim_model -> dim_ff)
         self.gelu: GELU activation
@@ -159,11 +157,8 @@ class FeedForwardBlock(nn.Module):
 class AttentionBlock(nn.Module):
     """Attention module for transformer layers.
 
-    This module consists of a multi-head self-attention layer with a dropout
-    layer. It is based on the original PyTorch implementation. The residual
-    connection is disabled by default, since SpecTf is a shallow model that
-    only uses a single transformer module. Deeper modules may require residual
-    connections due to the vanishing gradient problem.
+    This module consists of a multi-head attention layer with a dropout layer.
+    The residual connection is disabled by default.
 
     Attributes and Architecture:
         self.attention: MultiheadAttention layer
@@ -216,11 +211,8 @@ class EncoderLayer(nn.Module):
     """Encoder layer for transformer models.
     
     This module consists of a self-attention block followed by a feed-forward
-    block. It is based on the original PyTorch implementation, and uses the
-    pre-layer normalization variant per Xiong et al. (2020). The residual
-    connection is disabled by default, since SpecTf is a shallow model that
-    only uses a single transformer module. Deeper modules may require residual
-    connections due to the vanishing gradient problem.
+    block, using the pre-layer normalization variant. The residual connection
+    is disabled by default.
 
     Attributes and Architecture:
         norm1: LayerNorm module
@@ -268,11 +260,8 @@ class DecoderLayer(nn.Module):
     """Decoder layer for transformer models.
     
     This module consists of a self-attention block, a cross-attention block,
-    and a feed-forward block. It is based on the original PyTorch implementation
-    and uses the pre-layer normalization variant per Xiong et al. (2020). The
-    residual connection is disabled by default, since SpecTf is a shallow model
-    that only uses a single transformer module. Deeper modules may require
-    residual connections due to the vanishing gradient problem.
+    and a feed-forward block, in that order, using the pre-layer normalization
+    variant. The residual connection is disabled by default.
 
     Attributes and Architecture:
         norm1: LayerNorm module
@@ -328,10 +317,9 @@ class DecoderLayer(nn.Module):
 class CrossDecoderLayer(nn.Module):
     """Decoder layer with cross-attention only, and no self-attention.
 
-    This is a DecoderLayer stripped of its self-attention block, used for
-    Query2Label-style label-query pooling: each query attends independently
-    into the input token sequence, without modeling interactions between
-    queries. Pre-layer normalization variant per Xiong et al. (2020).
+    This is a DecoderLayer without its self-attention block: each query
+    attends into the input token sequence independently of the other queries.
+    Uses the pre-layer normalization variant.
 
     Attributes and Architecture:
         norm2: LayerNorm module
@@ -377,35 +365,93 @@ class CrossDecoderLayer(nn.Module):
         return x
 
 
+class PoolDecoderLayer(nn.Module):
+    """Decoder layer with cross-attention before self-attention.
+
+    This module consists of a cross-attention block, a self-attention block,
+    and a feed-forward block, in that order, using the pre-layer normalization
+    variant. This is the reverse of DecoderLayer's ordering: queries pool from
+    the input tokens first, so the self-attention block operates on retrieved
+    features rather than on the query vectors alone.
+
+    Unlike elsewhere in this module, the residual connection is enabled by
+    default. With it disabled, the self-attention block replaces each query's
+    pooled features with a mixture across queries rather than refining them.
+
+    Attributes and Architecture:
+        norm1: LayerNorm module
+        cross_attn: AttentionBlock module
+        norm2: LayerNorm module
+        self_attn: AttentionBlock module
+        norm3: LayerNorm module
+        ff: FeedForwardBlock module
+    """
+
+    def __init__(self, dim_model: int, num_heads: int, dim_ff: int,
+                 dropout: float = 0.1, use_residual: bool = True):
+        """ Initialize PoolDecoderLayer module.
+
+        Args:
+            dim_model (int): Dimension of the input and output tensors.
+            num_heads (int): Number of attention heads. Must be a divisor of
+                             dim_model.
+            dim_ff (int): Dimension of the intermediate tensor.
+            dropout (float): Dropout rate. Default 0.1.
+            use_residual (bool): Whether to use residual connections.
+                                 Default True.
+        """
+
+        super().__init__()
+        self.cross_attn = AttentionBlock(dim_model, num_heads, dropout,
+                                         use_residual)
+        self.self_attn = AttentionBlock(dim_model, num_heads, dropout,
+                                        use_residual)
+        self.ff = FeedForwardBlock(dim_model, dim_ff, dropout, use_residual)
+        self.norm1 = nn.LayerNorm(dim_model)
+        self.norm2 = nn.LayerNorm(dim_model)
+        self.norm3 = nn.LayerNorm(dim_model)
+
+    def forward(self, x, enc_out):
+        """PoolDecoderLayer forward pass.
+
+        Args:
+            x (torch.Tensor): Query tensor of shape (b, q, dim_model)
+            enc_out (torch.Tensor): Encoder output tensor of shape
+                                    (b, s, dim_model)
+
+        Returns:
+            torch.Tensor: Output tensor of shape (b, q, dim_model)
+        """
+        x = self.cross_attn(self.norm1(x), enc_out, enc_out)
+        x = self.self_attn(self.norm2(x), self.norm2(x), self.norm2(x))
+        x = self.ff(self.norm3(x))
+        return x
+
+
 class LabelQueryPooling(nn.Module):
     """Pools a token sequence into per-class logits via learned label queries.
 
     Replaces shared mean/max pooling with one learned query vector per class.
     Each query is cross-attended into the input token sequence across one or
     more decoder layers, giving each class its own pooled representation
-    instead of forcing every class to share a single pooled vector. This is
-    permutation- and length-invariant over the input tokens, preserving
-    SpecTf's ability to generalize across band counts/samplings.
+    instead of a single pooled vector shared across classes. Pooling is
+    permutation- and length-invariant over the input tokens, so the model
+    remains applicable across band counts and samplings.
 
-    Set use_self_attn=False for Query2Label-style pooling (Liu et al., 2021,
-    "Query2Label: A Simple Transformer Way to Multi-Label Classification"):
-    queries only cross-attend into the input tokens.
-
-    Set use_self_attn=True for C-Tran-style pooling (Lanchantin et al., 2021,
-    "General Multi-Label Image Classification with Transformers"): queries
-    additionally self-attend to each other every layer, allowing the model to
-    learn label co-occurrence structure (e.g. soil and pv commonly
-    co-occurring) directly in the pooling step.
+    With use_self_attn=False, queries only cross-attend into the input tokens
+    (CrossDecoderLayer). With use_self_attn=True, queries additionally
+    self-attend to each other after cross-attending, so each class's pooled
+    representation depends on the others (PoolDecoderLayer).
 
     The final per-class logit is computed with an independent weight vector
-    per class ("GroupFC", as in Query2Label/ML-Decoder) rather than a single
-    shared nn.Linear, which would allow classes to mix through shared weights.
+    per class rather than a single shared nn.Linear, so classes do not mix
+    through shared head weights.
 
     Attributes:
         label_queries (nn.Parameter): Learned per-class query vectors,
             shape (n_classes, dim_proj).
-        layers: List of DecoderLayer (use_self_attn=True) or CrossDecoderLayer
-            (use_self_attn=False) modules.
+        layers: List of PoolDecoderLayer (use_self_attn=True) or
+            CrossDecoderLayer (use_self_attn=False) modules.
         head_weight (nn.Parameter): Per-class head weight, shape
             (n_classes, dim_proj).
         head_bias (nn.Parameter): Per-class head bias, shape (n_classes,).
@@ -413,7 +459,7 @@ class LabelQueryPooling(nn.Module):
 
     def __init__(self, dim_proj: int, n_classes: int, num_heads: int,
                  dim_ff: int, dropout: float = 0.1, num_layers: int = 1,
-                 use_residual: bool = False, use_self_attn: bool = False):
+                 use_residual: bool = True, use_self_attn: bool = False):
         """Initialize LabelQueryPooling module.
 
         Args:
@@ -425,10 +471,10 @@ class LabelQueryPooling(nn.Module):
             dropout (float): Dropout rate. Default 0.1.
             num_layers (int): Number of pooling decoder layers. Default 1.
             use_residual (bool): Whether to use residual connections in the
-                                 pooling layers. Default False.
+                                 pooling layers. Default True.
             use_self_attn (bool): Whether label queries self-attend to each
-                                  other (C-Tran) or only cross-attend into the
-                                  input tokens (Query2Label). Default False.
+                                  other after cross-attending into the input
+                                  tokens. Default False.
         """
         super().__init__()
         self.use_self_attn = use_self_attn
@@ -436,7 +482,7 @@ class LabelQueryPooling(nn.Module):
         self.label_queries = nn.Parameter(torch.empty(n_classes, dim_proj))
         nn.init.trunc_normal_(self.label_queries, std=0.02)
 
-        layer_cls = DecoderLayer if use_self_attn else CrossDecoderLayer
+        layer_cls = PoolDecoderLayer if use_self_attn else CrossDecoderLayer
         self.layers = nn.ModuleList([
             layer_cls(dim_proj, num_heads, dim_ff, dropout, use_residual)
             for _ in range(num_layers)
@@ -576,15 +622,15 @@ class SpecTfEncoder(nn.Module):
 class SpecTfLabelQueryEncoder(nn.Module):
     """Encoder-based Spectral Transformer model with label-query pooling.
 
-    Identical to SpecTfEncoder, but replaces shared mean/max/flat pooling
-    with LabelQueryPooling: one learned query vector per class, cross-
-    attended into the encoder's token sequence, giving each class its own
-    pooled representation instead of a single vector shared across classes.
+    Identical to SpecTfEncoder, but replaces shared mean/max/flat aggregation
+    and the linear head with LabelQueryPooling: one learned query vector per
+    class, cross-attended into the encoder's token sequence, giving each class
+    its own pooled representation instead of a single vector shared across
+    classes. See LabelQueryPooling for the use_self_attn option.
 
-    Set use_self_attn=False for Query2Label-style pooling (queries only
-    cross-attend into tokens) or True for C-Tran-style pooling (queries also
-    self-attend to each other, modeling label co-occurrence). See
-    LabelQueryPooling for references.
+    Residual connections are configured separately for the encoder layers
+    (use_residual, default False) and the pooling layers (use_pool_residual,
+    default True).
 
     Model weights are initialized using Xavier initialization and model biases
     are initialized to zero with self.initialize_weights().
@@ -606,7 +652,8 @@ class SpecTfLabelQueryEncoder(nn.Module):
                  use_residual: bool = False,
                  num_layers: int = 1,
                  num_pool_layers: int = 1,
-                 use_self_attn: bool = False):
+                 use_self_attn: bool = False,
+                 use_pool_residual: bool = True):
         """Initialize SpecTfLabelQueryEncoder module.
 
         Args:
@@ -618,14 +665,15 @@ class SpecTfLabelQueryEncoder(nn.Module):
             dim_ff (int): Dimension of the intermediate tensors. Default 64.
             dropout (float): Dropout rate. Default 0.1.
             use_residual (bool): Whether to use residual connections in the
-                                 encoder and pooling layers. Default False.
+                                 encoder layers. Default False.
             num_layers (int): Number of encoder layers. Default 1.
             num_pool_layers (int): Number of label-query pooling layers.
                                    Default 1.
             use_self_attn (bool): Whether label queries self-attend to each
-                                  other (C-Tran) or only cross-attend into
-                                  the encoder tokens (Query2Label).
-                                  Default False.
+                                  other after cross-attending into the encoder
+                                  tokens. Default False.
+            use_pool_residual (bool): Whether to use residual connections in
+                                      the pooling layers. Default True.
         """
         super().__init__()
 
@@ -641,8 +689,8 @@ class SpecTfLabelQueryEncoder(nn.Module):
 
         # Label-query pooling + head
         self.pool = LabelQueryPooling(dim_proj, dim_output, num_heads, dim_ff,
-                                      dropout, num_pool_layers, use_residual,
-                                      use_self_attn)
+                                      dropout, num_pool_layers,
+                                      use_pool_residual, use_self_attn)
 
         self.initialize_weights()
 
